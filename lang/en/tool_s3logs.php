@@ -25,4 +25,31 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['pluginname'] = 'Moodle to Amazon S3 Log Archiver';
+$string['pluginname'] = 'S3 Log Archiver';
+$string['pluginnamedesc'] = 'Moodle to Amazon S3 Log Archiver';
+
+$string['generalsettings'] = 'General Settings';
+$string['generalsettings_desc'] = 'Settings for the general behaviour of the plugin.';
+$string['enable'] = 'Enable log archiver';
+$string['enable_desc'] = 'Enable log archive tasks Help with Enable log archive tasks';
+$string['maxruntime'] = 'Maximum log archive task runtime';
+$string['maxruntime_desc'] = 'Background tasks handle the archiving and truncating of the Moodle log table. This setting controlls the maximum runtime for all S3 logs related tasks.';
+$string['archivesettings'] = 'Log Archive Settings';
+$string['archivesettings_desc'] = 'settings for log archiving';
+$string['maxlogage'] = 'Maximum age of log entries (months)';
+$string['maxlogage_desc'] = 'Specifies the maximum age of log entriesi (in months) before the archiver starts archiving it to Amazon S3';
+$string['logrotate'] = 'Rotate';
+$string['logrotate_desc'] = 'Specifies how to group the Moodle logs before archiving it to Amazon S3';
+$string['logdelete'] = 'Delete logs after archiving';
+$string['logdelete_desc'] = 'Should logs be deleted once they have been uploaded to AWS S3.';
+$string['awss3settings'] = 'Amazon S3 Settings';
+$string['awss3settings_desc'] = 'Settings for AWS and S3 access';
+$string['bucket'] = 'Bucket';
+$string['bucket_desc'] = 'The name of the bucket to store the logs in.';
+$string['keyid'] = 'Key ID';
+$string['keyid_desc'] = 'The AWS API key used to make AWS API calls for S3';
+$string['secretkey'] = 'Secret Key';
+$string['secretkey_desc'] = 'The AWS secret key used to make AWS API calls for S3';
+$string['s3region'] = 'AWS Region';
+$string['s3region_desc'] = 'The AWS Region to use for API calls';
+
