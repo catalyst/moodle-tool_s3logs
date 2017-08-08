@@ -15,20 +15,23 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * Task to process logs.
  *
  * @package     tool_s3logs
+ * @category    task
  * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'tool_s3logs';
-$plugin->release = '2017080805';
-$plugin->version = 2017080805;
-$plugin->requires = 2016052300;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->dependencies = array(
-        'local_aws' => 2017030100
+$tasks = array(
+        array(
+                'classname' => 'tool_s3logs\task\process_logs',
+                'blocking' => 0,
+                'minute' => '01',
+                'hour' => '17',
+                'dayofweek' => '6',
+                'month' => '8'
+        )
 );

@@ -15,20 +15,43 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * Task to process logs.
  *
  * @package     tool_s3logs
+ * @category    task
  * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+namespace tool_s3logs\task;
+
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'tool_s3logs';
-$plugin->release = '2017080805';
-$plugin->version = 2017080805;
-$plugin->requires = 2016052300;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->dependencies = array(
-        'local_aws' => 2017030100
-);
+/**
+ * Class to process logs.
+ *
+ * @package     tool_s3logs
+ * @category    task
+ * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class process_logs extends \core\task\scheduled_task {
+
+    /**
+     * {@inheritDoc}
+     * @see \core\task\scheduled_task::get_name()
+     */
+    public function get_name() {
+        // Shown in admin screens
+        return get_string('processlogs', 'tool_s3logs');
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     * @see \core\task\task_base::execute()
+     */
+    public function execute() {
+
+    }
+} 
