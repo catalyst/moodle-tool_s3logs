@@ -29,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/local/aws/sdk/aws-autoloader.php');
 
 use Aws\S3\S3Client;
-use Aws\S3\Exception\S3Exception;
 
 /**
  * S3 Client helper class.
@@ -75,6 +74,9 @@ class s3_client {
 
     /**
      * Uploads a temp local file to s3.
+     * If the uipload operation fails the parent
+     * AWS client lib will throw an error.
+     * This won't fail silently.
      *
      * @param string $filepath The path to the temp file.
      * @param string $keyname The nbame to give the object in S3.
