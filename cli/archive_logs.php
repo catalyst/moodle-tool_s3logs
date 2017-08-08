@@ -47,7 +47,7 @@ Please include an example of usage.
 
 if ($unrecognized) {
     $unrecognized = implode("\n\t", $unrecognized);
-    cli_error(get_string('cliunknownoption', 'admin', $unrecognized);
+    cli_error(get_string('cliunknownoption', 'admin', $unrecognized));
 }
 
 if ($options['help']) {

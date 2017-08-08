@@ -59,19 +59,6 @@ if ($hassiteconfig) {
                 get_string('maxlogage_desc', 'tool_s3logs'),
                 18, PARAM_INT));
 
-        $rotateoptions = array(
-                '86400'   => 'daily',
-                '604800'  => 'weekly',
-        );
-        $settings->add(new admin_setting_configselect('tool_s3logs/logrotate',
-                get_string('logrotate', 'tool_s3logs' ),
-                get_string('logrotate_desc', 'tool_s3logs'),
-                '86400', $rotateoptions));
-
-        $settings->add(new admin_setting_configcheckbox('tool_s3logs/logdelete',
-                get_string('logdelete', 'tool_s3logs'),
-                get_string('logdelete_desc', 'tool_s3logs'), 0));
-
         // AWS Bucket and S3 setttings
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),

@@ -65,10 +65,8 @@ class process_logs extends \core\task\scheduled_task {
         $limit = 1000;
         $step = 1000;
         $isempty = True;
+        $recordids = array();
  
-        // Initialise an S3 client.
-        $s3client = new s3_client();
-
         // Get a temp file.
         $tempdir = make_temp_directory('s3logs_upload');
         $tempfile = tempnam ($tempdir, 's3logs_');
@@ -100,13 +98,14 @@ class process_logs extends \core\task\scheduled_task {
                 mtrace('breaking no more results');
                 break; // Stop trying to get records when we run out;
             }
+
             $isempty = false; // We have content for file
             $start += $step;
 
             // We do not want to load all results into memory,
             // we want to write them to a file as we go.
             foreach($results as $key => $value){
-               // error_log(print_r((array)$value, true));
+                $recordids[] = $key;
                 fputcsv($fp, (array)$value);
             }
 
@@ -115,18 +114,25 @@ class process_logs extends \core\task\scheduled_task {
 
         if (!$isemmpty) {
             // if file isn't empty upload this file to s3
+            $firstrecord = min($recordids);
+            $lastrecord = max($recordids);
+            $keyname = 'logstore_standard_log_' . date(YmdHis). '_' . $firstrecord . '_' . $lastrecord;
+            $s3client = new s3_client();
             $result = $s3client->client->putObject(array(
                     'Bucket'       => $s3client->bucket,
-                    'Key'          => 'foobar',
+                    'Key'          => $keyname,
                     'SourceFile'   => $tempfile,
                     'ContentType'  => 'text/csv'
 
             ));
-            echo $result['ObjectURL'];
-        }
-        
-        // remove entries from log table
-        // if we are deleting and if file was happ
+            if ($result['ObjectURL']) {
+                // Delete the processed records from the log table.
+                $todelete = implode(',', $recordids);
 
+                $truncatesql = "DELETE FROM {logstore_standard_log}
+                WHERE id IN ({$todelete})";
+                //$DB->execute($truncatesql);
+            }
+        }
     }
-} 
+}
