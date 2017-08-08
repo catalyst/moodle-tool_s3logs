@@ -48,38 +48,37 @@ class process_logs extends \core\task\scheduled_task {
         return get_string('processlogs', 'tool_s3logs');
     }
 
-    /**
-     *
-     * {@inheritDoc}
-     * @see \core\task\task_base::execute()
-     */
-    public function execute() {
-        global $DB;
-        $config = get_config('tool_s3logs');
-
-        // Set up basic vars.
-        $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
-        $threshold = time() - $maxage;
-        $stopat = time() + $config->maxruntime;
-        $start = 0;
-        $limit = 1000;
-        $step = 1000;
-        $isempty = True;
-        $recordids = array();
- 
-        // Get a temp file.
+    private function get_temp_file() {
         $tempdir = make_temp_directory('s3logs_upload');
         $tempfile = tempnam ($tempdir, 's3logs_');
         error_log($tempfile);
         $fp = fopen($tempfile, 'w');
 
-        // Add the table headers to the temp file
+        return array ($tempfile, $fp);
+    }
+
+
+    private function write_file_headers($fp){
+        global $DB;
+
         $headerrecords = $DB->get_columns('logstore_standard_log');
         $headers = array();
         foreach ($headerrecords as $key => $value) {
             $headers[] = $key;
         }
-        fputcsv($fp, $headers);
+        $result = fputcsv($fp, $headers);
+
+        return $result;
+    }
+
+    private function extract_records($stopat, $maxage, $fp) {
+        global $DB;
+
+        $start = 0;
+        $limit = 1000;
+        $step = 1000;
+        $threshold = time() - $maxage;
+        $recordids = array();
 
         // Get 1000 rows of data from the log table order by oldest first.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
@@ -99,7 +98,7 @@ class process_logs extends \core\task\scheduled_task {
                 break; // Stop trying to get records when we run out;
             }
 
-            $isempty = false; // We have content for file
+            // Increment record start position for next iteration.
             $start += $step;
 
             // We do not want to load all results into memory,
@@ -110,9 +109,37 @@ class process_logs extends \core\task\scheduled_task {
             }
 
         }
+
+        return $recordids;
+    }
+    /**
+     *
+     * {@inheritDoc}
+     * @see \core\task\task_base::execute()
+     */
+    public function execute() {
+        global $DB;
+        $config = get_config('tool_s3logs');
+
+        // Set up basic vars.
+        $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
+        $stopat = time() + $config->maxruntime;
+ 
+        // Get a temp file.
+        mtrace('Getting temporary file...');
+        list ($tempfile, $fp) = $this->get_temp_file();
+
+        // Add the table headers to the temp file
+        $headerwrite = $this->write_file_headers($fp);
+        if (!$headerwrite) {
+            throw new \moodle_exception('noheaders', 'tool_s3logs', '');
+        }
+
+        // Extract records from DB and add them to the temp file.
+        $recordids = $this->extract_records($stopat, $maxage, $fp);
         fclose($fp); // Close file now that we have it
 
-        if (!$isemmpty) {
+        if (!empty($recordids)) {
             // if file isn't empty upload this file to s3
             $firstrecord = min($recordids);
             $lastrecord = max($recordids);
