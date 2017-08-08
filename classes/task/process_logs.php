@@ -87,49 +87,43 @@ class process_logs extends \core\task\scheduled_task {
      * Extract the log records from the db and write
      * to a temporary file.
      *
+     * The method is passed an interval of months in seconds,
+     * we want to get all records that are older than this
+     * number of months.
+     *
      * @param int $stopat The time to stop process, if there are still records.
-     * @param int $maxage Get log entries that are older than this unix timestamp.
+     * @param int $interval Interval of months in seconds.
      * @param file $fp File pointer to temp file to write to.
      * @return array $recordids the ID's of the log entries written to the file.
      */
-    private function extract_records($stopat, $maxage, $fp) {
+    private function extract_records($stopat, $interval, $fp) {
         global $DB;
 
-        $start = 0;
-        $limit = 1000;
-        $step = 1000;
-        $threshold = time() - $maxage;
+        $threshold = time() - $interval;
         $recordids = array();
 
-        // Get 1000 rows of data from the log table order by oldest first.
-        // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
-        while (time() <= $stopat) {
-            $results = $DB->get_records_select(
-                    'logstore_standard_log',
-                    'timecreated >= ?',
-                    array($threshold),
-                    'timecreated ASC',
-                    '*',
-                    $start,
-                    $limit
-                    );
+        mtrace('Current time is: ' . date('Y-m-d H:i:s', time()));
+        mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
-            if (empty($results)) {
-                mtrace('Records processing finished before time limit reached');
-                break; // Stop trying to get records when we run out.
+        $results = $DB->get_recordset_select(
+                'logstore_standard_log',
+                'timecreated <= ?',
+                array($threshold),
+                'timecreated ASC'
+                );
+
+        if ($results->valid()) { // The recordset contains records.
+            foreach ($results as $result) {
+                $recordids[] = $result->id;
+                fputcsv($fp, (array)$result);
+
+                if (time() > $stopat) {
+                    mtrace('Records processing time limit reached');
+                    break; // Stop trying to get records when we run out of time.
+                }
             }
-
-            // Increment record start position for next iteration.
-            $start += $step;
-
-            // We do not want to load all results into memory,
-            // we want to write them to a file as we go.
-            foreach ($results as $key => $value) {
-                $recordids[] = $key;
-                fputcsv($fp, (array)$value);
-            }
-
         }
+        $results->close();
 
         return $recordids;
     }
@@ -142,11 +136,10 @@ class process_logs extends \core\task\scheduled_task {
     private function delete_records ($recordids) {
         global $DB;
 
-        $todelete = implode(',', $recordids);
-
-        $truncatesql = "DELETE FROM {logstore_standard_log}
-        WHERE id IN ({$todelete})";
-        $DB->execute($truncatesql);
+        $chunks = array_chunk($recordids, 2, true);
+        foreach ($chunks as $chunk) {
+            $DB->delete_records_list('logstore_standard_log', 'id', $chunk);
+        }
     }
 
     /**
@@ -179,18 +172,21 @@ class process_logs extends \core\task\scheduled_task {
 
         if (!empty($recordids)) {
             // If file isn't empty upload this file to s3.
-            mtrace('Uploading records to S3...');
+            $numrecords = count($recordids);
             $firstrecord = min($recordids);
             $lastrecord = max($recordids);
-            $keyname = 'logstore_standard_log_' . date(YmdHis). '_' . $firstrecord . '_' . $lastrecord;
+            $keyname = 'logstore_standard_log_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord;
+
+            mtrace('Uploading ' . $numrecords . ' records to S3...');
             $s3client = new s3_client();
             $s3url = $s3client->upload_file($tempfile, $keyname);
 
             if (!$s3url) {
                 throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
             } else {
+                mtrace('Uploaded file name: '. $keyname);
                 // Delete the processed records from the log table.
-                mtrace('Deleting records from DB...');
+                mtrace('Deleting' . $numrecords. ' records from DB...');
                 $this->delete_records($recordids);
             }
         } else {
