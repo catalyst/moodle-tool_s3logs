@@ -59,6 +59,11 @@ if ($hassiteconfig) {
                 get_string('maxlogage_desc', 'tool_s3logs'),
                 18, PARAM_INT));
 
+        $settings->add(new admin_setting_configtext('tool_s3logs/prefix',
+                get_string('prefix', 'tool_s3logs' ),
+                get_string('prefix_desc', 'tool_s3logs'),
+                '', PARAM_ALPHA));
+
         // AWS Bucket and S3 setttings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),

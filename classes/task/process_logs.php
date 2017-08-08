@@ -102,7 +102,6 @@ class process_logs extends \core\task\scheduled_task {
         $threshold = time() - $interval;
         $recordids = array();
 
-        mtrace('Current time is: ' . date('Y-m-d H:i:s', time()));
         mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
         $results = $DB->get_recordset_select(
@@ -136,7 +135,7 @@ class process_logs extends \core\task\scheduled_task {
     private function delete_records ($recordids) {
         global $DB;
 
-        $chunks = array_chunk($recordids, 2, true);
+        $chunks = array_chunk($recordids, 1000, true);
         foreach ($chunks as $chunk) {
             $DB->delete_records_list('logstore_standard_log', 'id', $chunk);
         }
@@ -159,7 +158,7 @@ class process_logs extends \core\task\scheduled_task {
         list ($tempfile, $fp) = $this->get_temp_file();
 
         // Add the table headers to the temp file.
-        mtrace('writing table headers to temporary file...');
+        mtrace('Writing table headers to temporary file...');
         $headerwrite = $this->write_file_headers($fp);
         if (!$headerwrite) {
             throw new \moodle_exception('noheaders', 'tool_s3logs', '');
@@ -167,17 +166,21 @@ class process_logs extends \core\task\scheduled_task {
 
         // Extract records from DB and add them to the temp file.
         mtrace('Finding records and updating temporary file...');
+        $starttime = time();
         $recordids = $this->extract_records($stopat, $maxage, $fp);
         fclose($fp); // Close file now that we have it.
+        $elapsedtime = time() -$starttime;
 
         if (!empty($recordids)) {
             // If file isn't empty upload this file to s3.
             $numrecords = count($recordids);
             $firstrecord = min($recordids);
             $lastrecord = max($recordids);
-            $keyname = 'logstore_standard_log_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord;
 
+            $keyname = $config->prefix . '_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord . 'csv';
+            mtrace('Extracting records from DB took: ' . $elapsedtime . ' seconds...');
             mtrace('Uploading ' . $numrecords . ' records to S3...');
+
             $s3client = new s3_client();
             $s3url = $s3client->upload_file($tempfile, $keyname);
 
