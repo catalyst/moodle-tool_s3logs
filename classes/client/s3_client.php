@@ -51,7 +51,7 @@ class s3_client {
         $this->config = get_config('tool_s3logs');
         $this->s3region = $this->config->s3region;
         $this->keyid = $this->config->keyid;
-        $this->secretkey= $this->config->secretkey;
+        $this->secretkey = $this->config->secretkey;
         $this->bucket = $this->config->bucket;
         $this->client = $this->get_s3_client();
     }
@@ -80,7 +80,7 @@ class s3_client {
      * @param string $keyname The nbame to give the object in S3.
      * @return string $s3url The URL to the object in S3
      */
-    public function upload_file($filepath, $keyname){
+    public function upload_file($filepath, $keyname) {
         $s3client = $this->client;
         $s3url = false;
         $result = $s3client->putObject(array(

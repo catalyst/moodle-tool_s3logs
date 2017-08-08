@@ -44,7 +44,7 @@ class process_logs extends \core\task\scheduled_task {
      * @see \core\task\scheduled_task::get_name()
      */
     public function get_name() {
-        // Shown in admin screens
+        // Shown in admin screens.
         return get_string('processlogs', 'tool_s3logs');
     }
 
@@ -70,7 +70,7 @@ class process_logs extends \core\task\scheduled_task {
      * @param file $fp Valid file pointer
      * @return int $result The Length of the header cotnent written.
      */
-    private function write_file_headers($fp){
+    private function write_file_headers($fp) {
         global $DB;
 
         $headerrecords = $DB->get_columns('logstore_standard_log');
@@ -103,7 +103,7 @@ class process_logs extends \core\task\scheduled_task {
 
         // Get 1000 rows of data from the log table order by oldest first.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
-        while (time() <= $stopat){
+        while (time() <= $stopat) {
             $results = $DB->get_records_select(
                     'logstore_standard_log',
                     'timecreated >= ?',
@@ -116,7 +116,7 @@ class process_logs extends \core\task\scheduled_task {
 
             if (empty($results)) {
                 mtrace('Records processing finished before time limit reached');
-                break; // Stop trying to get records when we run out;
+                break; // Stop trying to get records when we run out.
             }
 
             // Increment record start position for next iteration.
@@ -124,7 +124,7 @@ class process_logs extends \core\task\scheduled_task {
 
             // We do not want to load all results into memory,
             // we want to write them to a file as we go.
-            foreach($results as $key => $value){
+            foreach ($results as $key => $value) {
                 $recordids[] = $key;
                 fputcsv($fp, (array)$value);
             }
@@ -139,7 +139,7 @@ class process_logs extends \core\task\scheduled_task {
      *
      * @param array $recordids Array of record ID's to delete
      */
-    private function delete_records ($recordids){
+    private function delete_records ($recordids) {
         global $DB;
 
         $todelete = implode(',', $recordids);
@@ -160,12 +160,12 @@ class process_logs extends \core\task\scheduled_task {
         // Set up basic vars.
         $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
         $stopat = time() + $config->maxruntime;
- 
+
         // Get a temp file.
         mtrace('Getting temporary file...');
         list ($tempfile, $fp) = $this->get_temp_file();
 
-        // Add the table headers to the temp file
+        // Add the table headers to the temp file.
         mtrace('writing table headers to temporary file...');
         $headerwrite = $this->write_file_headers($fp);
         if (!$headerwrite) {
@@ -175,10 +175,10 @@ class process_logs extends \core\task\scheduled_task {
         // Extract records from DB and add them to the temp file.
         mtrace('Finding records and updating temporary file...');
         $recordids = $this->extract_records($stopat, $maxage, $fp);
-        fclose($fp); // Close file now that we have it
+        fclose($fp); // Close file now that we have it.
 
         if (!empty($recordids)) {
-            // if file isn't empty upload this file to s3
+            // If file isn't empty upload this file to s3.
             mtrace('Uploading records to S3...');
             $firstrecord = min($recordids);
             $lastrecord = max($recordids);
@@ -186,7 +186,7 @@ class process_logs extends \core\task\scheduled_task {
             $s3client = new s3_client();
             $s3url = $s3client->upload_file($tempfile, $keyname);
 
-            if (!$s3url){
+            if (!$s3url) {
                 throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
             } else {
                 // Delete the processed records from the log table.

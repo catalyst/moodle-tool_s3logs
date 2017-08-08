@@ -36,8 +36,7 @@ array(
     'h' => 'help'
 ));
 
-$help =
-"
+$help = "
 Help message for tool_s3logs cli script.
 
 Please include a list of options and associated actions.

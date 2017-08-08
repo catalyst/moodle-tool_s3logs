@@ -59,7 +59,7 @@ if ($hassiteconfig) {
                 get_string('maxlogage_desc', 'tool_s3logs'),
                 18, PARAM_INT));
 
-        // AWS Bucket and S3 setttings
+        // AWS Bucket and S3 setttings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),
                 get_string('awss3settings_desc', 'tool_s3logs')
@@ -92,8 +92,9 @@ if ($hassiteconfig) {
                'eu-central-1'   => 'eu-central-1',
                'eu-west-1'      => 'eu-west-1'
                 );
-       $settings->add(new admin_setting_configselect('tool_s3logs/s3region',
+        $settings->add(new admin_setting_configselect('tool_s3logs/s3region',
                 get_string('s3region', 'tool_s3logs' ),
                 get_string('s3region_desc', 'tool_s3logs'),
-               'ap-southeast-2', $regionoptions));}
+               'ap-southeast-2', $regionoptions));
+    }
 }
