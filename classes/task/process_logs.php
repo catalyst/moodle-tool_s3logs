@@ -19,7 +19,7 @@
  *
  * @package     tool_s3logs
  * @category    task
- * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -34,7 +34,7 @@ use tool_s3logs\client\s3_client;
  *
  * @package     tool_s3logs
  * @category    task
- * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class process_logs extends \core\task\scheduled_task {

@@ -19,7 +19,7 @@
  *
  * @package     tool_s3logs
  * @category    task
- * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -30,8 +30,8 @@ $tasks = array(
                 'classname' => 'tool_s3logs\task\process_logs',
                 'blocking' => 0,
                 'minute' => '01',
-                'hour' => '17',
+                'hour' => '01',
                 'dayofweek' => '6',
-                'month' => '8'
+                'month' => '*'
         )
 );

@@ -19,7 +19,7 @@
  *
  * @package     tool_s3logs
  * @subpackage  cli
- * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

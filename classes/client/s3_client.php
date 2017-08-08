@@ -18,7 +18,7 @@
  * S3 Client helper class.
  *
  * @package     tool_s3logs
- * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -35,7 +35,7 @@ use Aws\S3\Exception\S3Exception;
  * S3 Client helper class.
  *
  * @package     tool_s3logs
- * @copyright   2017 Matt Porritt <mattp@catlayst-au.net>
+ * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class s3_client {
