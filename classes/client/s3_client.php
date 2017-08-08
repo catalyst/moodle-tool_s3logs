@@ -73,4 +73,26 @@ class s3_client {
         return $s3client;
     }
 
+    /**
+     * Uploads a temp local file to s3.
+     *
+     * @param string $filepath The path to the temp file.
+     * @param string $keyname The nbame to give the object in S3.
+     * @return string $s3url The URL to the object in S3
+     */
+    public function upload_file($filepath, $keyname){
+        $s3client = $this->client;
+        $s3url = false;
+        $result = $s3client->putObject(array(
+                'Bucket'       => $this->bucket,
+                'Key'          => $keyname,
+                'SourceFile'   => $filepath,
+                'ContentType'  => 'text/csv'
+
+        ));
+        $s3url = $result['ObjectURL'];
+
+        return $s3url;
+    }
+
 }

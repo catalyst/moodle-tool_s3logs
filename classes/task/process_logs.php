@@ -48,16 +48,28 @@ class process_logs extends \core\task\scheduled_task {
         return get_string('processlogs', 'tool_s3logs');
     }
 
+    /**
+     * Creates a temp file on the files system.
+     * Returns the name inlcuding path of the file
+     * and a file pointer.
+     *
+     * @return array File name and file pointer.
+     */
     private function get_temp_file() {
         $tempdir = make_temp_directory('s3logs_upload');
         $tempfile = tempnam ($tempdir, 's3logs_');
-        error_log($tempfile);
         $fp = fopen($tempfile, 'w');
 
         return array ($tempfile, $fp);
     }
 
-
+    /**
+     * Given a file pointer write the fields from the logstore
+     * table as headers.
+     *
+     * @param file $fp Valid file pointer
+     * @return int $result The Length of the header cotnent written.
+     */
     private function write_file_headers($fp){
         global $DB;
 
@@ -71,6 +83,15 @@ class process_logs extends \core\task\scheduled_task {
         return $result;
     }
 
+    /**
+     * Extract the log records from the db and write
+     * to a temporary file.
+     *
+     * @param int $stopat The time to stop process, if there are still records.
+     * @param int $maxage Get log entries that are older than this unix timestamp.
+     * @param file $fp File pointer to temp file to write to.
+     * @return array $recordids the ID's of the log entries written to the file.
+     */
     private function extract_records($stopat, $maxage, $fp) {
         global $DB;
 
@@ -94,7 +115,7 @@ class process_logs extends \core\task\scheduled_task {
                     );
 
             if (empty($results)) {
-                mtrace('breaking no more results');
+                mtrace('Records processing finished before time limit reached');
                 break; // Stop trying to get records when we run out;
             }
 
@@ -112,13 +133,28 @@ class process_logs extends \core\task\scheduled_task {
 
         return $recordids;
     }
+
+    /**
+     * Deletes rows from teh log store table.
+     *
+     * @param array $recordids Array of record ID's to delete
+     */
+    private function delete_records ($recordids){
+        global $DB;
+
+        $todelete = implode(',', $recordids);
+
+        $truncatesql = "DELETE FROM {logstore_standard_log}
+        WHERE id IN ({$todelete})";
+        $DB->execute($truncatesql);
+    }
+
     /**
      *
      * {@inheritDoc}
      * @see \core\task\task_base::execute()
      */
     public function execute() {
-        global $DB;
         $config = get_config('tool_s3logs');
 
         // Set up basic vars.
@@ -130,36 +166,35 @@ class process_logs extends \core\task\scheduled_task {
         list ($tempfile, $fp) = $this->get_temp_file();
 
         // Add the table headers to the temp file
+        mtrace('writing table headers to temporary file...');
         $headerwrite = $this->write_file_headers($fp);
         if (!$headerwrite) {
             throw new \moodle_exception('noheaders', 'tool_s3logs', '');
         }
 
         // Extract records from DB and add them to the temp file.
+        mtrace('Finding records and updating temporary file...');
         $recordids = $this->extract_records($stopat, $maxage, $fp);
         fclose($fp); // Close file now that we have it
 
         if (!empty($recordids)) {
             // if file isn't empty upload this file to s3
+            mtrace('Uploading records to S3...');
             $firstrecord = min($recordids);
             $lastrecord = max($recordids);
             $keyname = 'logstore_standard_log_' . date(YmdHis). '_' . $firstrecord . '_' . $lastrecord;
             $s3client = new s3_client();
-            $result = $s3client->client->putObject(array(
-                    'Bucket'       => $s3client->bucket,
-                    'Key'          => $keyname,
-                    'SourceFile'   => $tempfile,
-                    'ContentType'  => 'text/csv'
+            $s3url = $s3client->upload_file($tempfile, $keyname);
 
-            ));
-            if ($result['ObjectURL']) {
+            if (!$s3url){
+                throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
+            } else {
                 // Delete the processed records from the log table.
-                $todelete = implode(',', $recordids);
-
-                $truncatesql = "DELETE FROM {logstore_standard_log}
-                WHERE id IN ({$todelete})";
-                //$DB->execute($truncatesql);
+                mtrace('Deleting records from DB...');
+                $this->delete_records($recordids);
             }
+        } else {
+            mtrace('No records found to process, finishing...');
         }
     }
 }
