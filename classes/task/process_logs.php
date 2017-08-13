@@ -101,28 +101,41 @@ class process_logs extends \core\task\scheduled_task {
 
         $threshold = time() - $interval;
         $recordids = array();
+        $start = 0;
+        $limit = 1000;
+        $step = 1000;
 
         mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
-        $results = $DB->get_recordset_select(
-                'logstore_standard_log',
-                'timecreated <= ?',
-                array($threshold),
-                'timecreated ASC'
-                );
+        // Get 1000 rows of data from the log table order by oldest first.
+        // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
+        while (time() <= $stopat){
+            $results = $DB->get_records_select(
+                    'logstore_standard_log',
+                    'timecreated <= ?',
+                    array($threshold),
+                    'timecreated ASC',
+                    '*',
+                    $start,
+                    $limit
+                    );
 
-        if ($results->valid()) { // The recordset contains records.
-            foreach ($results as $result) {
-                $recordids[] = $result->id;
-                fputcsv($fp, (array)$result);
-
-                if (time() > $stopat) {
-                    mtrace('Records processing time limit reached');
-                    break; // Stop trying to get records when we run out of time.
-                }
+            if (empty($results)) {
+                mtrace('Records processing finished before time limit reached');
+                break; // Stop trying to get records when we run out;
             }
+
+            // Increment record start position for next iteration.
+            $start += $step;
+
+            // We do not want to load all results into memory,
+            // we want to write them to a file as we go.
+            foreach($results as $key => $value){
+                $recordids[] = $key;
+                fputcsv($fp, (array)$value);
+            }
+
         }
-        $results->close();
 
         return $recordids;
     }
