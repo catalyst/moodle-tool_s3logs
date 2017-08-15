@@ -190,7 +190,7 @@ class process_logs extends \core\task\scheduled_task {
             $firstrecord = min($recordids);
             $lastrecord = max($recordids);
 
-            $keyname = $config->prefix . '_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord . 'csv';
+            $keyname = $config->prefix . '_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord . '.csv';
             mtrace('Extracting records from DB took: ' . $elapsedtime . ' seconds...');
             mtrace('Uploading ' . $numrecords . ' records to S3...');
 
@@ -202,7 +202,7 @@ class process_logs extends \core\task\scheduled_task {
             } else {
                 mtrace('Uploaded file name: '. $keyname);
                 // Delete the processed records from the log table.
-                mtrace('Deleting' . $numrecords. ' records from DB...');
+                mtrace('Deleting ' . $numrecords. ' records from DB...');
                 $this->delete_records($recordids);
             }
         } else {
