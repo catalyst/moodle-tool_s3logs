@@ -51,5 +51,6 @@ $string['s3region'] = 'AWS Region';
 $string['s3region_desc'] = 'The AWS Region to use for API calls';
 $string['secretkey'] = 'Secret Key';
 $string['secretkey_desc'] = 'The AWS secret key used to make AWS API calls for S3';
+$string['privacy:metadata'] = 's3logs tool export Moodle standard log for archiving purposes';
 
 
