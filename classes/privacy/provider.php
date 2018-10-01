@@ -27,7 +27,7 @@ namespace tool_s3logs\privacy;
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * The tool_s3logs
+ * The tool_s3logs privacy
  *
  */
 class provider implements \core_privacy\local\metadata\null_provider {
