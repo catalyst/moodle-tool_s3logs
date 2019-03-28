@@ -67,7 +67,7 @@ class process_logs extends \core\task\scheduled_task {
      * Given a file pointer write the fields from the logstore
      * table as headers.
      *
-     * @param file $fp Valid file pointer
+     * @param resource $fp Valid file pointer
      * @return int $result The Length of the header cotnent written.
      */
     private function write_file_headers($fp) {
@@ -93,7 +93,7 @@ class process_logs extends \core\task\scheduled_task {
      *
      * @param int $stopat The time to stop process, if there are still records.
      * @param int $interval Interval of months in seconds.
-     * @param file $fp File pointer to temp file to write to.
+     * @param resource $fp File pointer to temp file to write to.
      * @return array $recordids the ID's of the log entries written to the file.
      */
     private function extract_records($stopat, $interval, $fp) {
@@ -109,7 +109,7 @@ class process_logs extends \core\task\scheduled_task {
 
         // Get 1000 rows of data from the log table order by oldest first.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
-        while (time() <= $stopat){
+        while (time() <= $stopat) {
             $results = $DB->get_records_select(
                     'logstore_standard_log',
                     'timecreated <= ?',
@@ -122,7 +122,7 @@ class process_logs extends \core\task\scheduled_task {
 
             if (empty($results)) {
                 mtrace('Records processing finished before time limit reached');
-                break; // Stop trying to get records when we run out;
+                break; // Stop trying to get records when we run out.
             }
 
             // Increment record start position for next iteration.
@@ -130,7 +130,7 @@ class process_logs extends \core\task\scheduled_task {
 
             // We do not want to load all results into memory,
             // we want to write them to a file as we go.
-            foreach($results as $key => $value){
+            foreach ($results as $key => $value) {
                 $recordids[] = $key;
                 fputcsv($fp, (array)$value);
             }
@@ -155,7 +155,6 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
-     *
      * {@inheritDoc}
      * @see \core\task\task_base::execute()
      */
@@ -182,7 +181,7 @@ class process_logs extends \core\task\scheduled_task {
         $starttime = time();
         $recordids = $this->extract_records($stopat, $maxage, $fp);
         fclose($fp); // Close file now that we have it.
-        $elapsedtime = time() -$starttime;
+        $elapsedtime = time() - $starttime;
 
         if (!empty($recordids)) {
             // If file isn't empty upload this file to s3.
