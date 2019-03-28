@@ -97,4 +97,33 @@ class s3_client {
         return $s3url;
     }
 
+    /**
+     * Downloads a file from s3 to supplied path.
+     *
+     * @param string $filepath Local file path.
+     * @param string $keyname  S3 keyname.
+     * @return void
+     */
+    public function download_file($filepath, $keyname) {
+        $result = $this->client->getObject(array(
+            'Bucket' => $this->bucket,
+            'Key'    => $keyname,
+            'SaveAs' => $filepath
+        ));
+    }
+
+    /**
+     * Returns all objects keys in the bucket.
+     *
+     * @return array
+     */
+    public function get_all_keys() {
+        // We use the iteratior incase there are more than 1000.
+        $keys = array();
+        $objects = $this->client->getIterator('ListObjects', array('Bucket' => $this->bucket));
+        foreach ($objects as $object) {
+            $keys[] = $object['Key'];
+        }
+        return $keys;
+    }
 }
