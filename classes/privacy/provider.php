@@ -15,20 +15,29 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * Privacy Subsystem implementation for tool_s3logs.
  *
- * @package     tool_s3logs
- * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
- * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    tool_s3logs
+ * @copyright  2018 Nathan Nguyen <nathannguyen@catalyst-net.au>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+namespace tool_s3logs\privacy;
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'tool_s3logs';
-$plugin->version = 2019032900;
-$plugin->release = '2019032900';
-$plugin->requires = 2018051700;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->dependencies = array(
-        'local_aws' => 2017030100
-);
+/**
+ * The tool_s3logs privacy
+ *
+ */
+class provider implements \core_privacy\local\metadata\null_provider {
+    /**
+     * Get the language string identifier with the component's language
+     * file to explain why this plugin stores no data.
+     *
+     * @return string
+     */
+    public static function get_reason() : string {
+        return 'privacy:metadata';
+    }
+}
