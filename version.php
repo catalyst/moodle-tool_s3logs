@@ -25,9 +25,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_s3logs';
-$plugin->release = '2017080900';
-$plugin->version = 2017080900;
-$plugin->requires = 2016052300;
+$plugin->version = 2019032900;
+$plugin->release = '2019032900';
+$plugin->requires = 2018051700;
 $plugin->maturity = MATURITY_ALPHA;
 $plugin->dependencies = array(
         'local_aws' => 2017030100

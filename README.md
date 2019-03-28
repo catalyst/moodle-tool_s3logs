@@ -11,9 +11,7 @@ The plugin functionality runs as a Moodle scheduled task.
 ## Supported Moodle Versions
 This plugin currently supports Moodle:
 
-* 3.1
-* 3.2
-* 3.3
+* 3.5+
 
 ## Installation
 
