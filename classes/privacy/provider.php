@@ -26,18 +26,66 @@ namespace tool_s3logs\privacy;
 
 defined('MOODLE_INTERNAL') || die();
 
+use core_privacy\local\request\contextlist;
+use core_privacy\local\metadata\collection;
+use core_privacy\local\request\approved_contextlist;
+
 /**
  * The tool_s3logs privacy
  *
  */
-class provider implements \core_privacy\local\metadata\null_provider {
+class provider implements
+    \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\plugin\provider {
+
     /**
-     * Get the language string identifier with the component's language
-     * file to explain why this plugin stores no data.
+     * Returns meta data about this system.
      *
-     * @return string
+     * @param   collection $collection The initialised collection to add items to.
+     * @return  collection A listing of user data stored through this system.
      */
-    public static function get_reason() : string {
-        return 'privacy:metadata';
+    public static function get_metadata(collection $collection) : collection {
+        $collection->add_external_location_link('s3logs', [
+            'userid' => 'privacy:metadata:tool_s3logs:userid',
+            'relateduserid' => 'privacy:metadata:tool_s3logs:relateduserid',
+            'realuserid' => 'privacy:tool_s3logs:log:realuserid',
+        ], 'privacy:metadata:tool_s3logs:externalpurpose');
+
+        return $collection;
     }
+
+    /**
+     * Get the list of contexts that contain user information for the specified user.
+     *
+     * @param   int         $userid     The user to search.
+     * @return  contextlist $contextlist  The contextlist containing the list of contexts used in this plugin.
+     */
+    public static function get_contexts_for_userid(int $userid) : contextlist {
+        return new contextlist();
+    }
+
+    /**
+     * Export all user data for the specified user, in the specified contexts.
+     *
+     * @param approved_contextlist $contextlist The approved contexts to export information for.
+     */
+    public static function export_user_data(approved_contextlist $contextlist) {
+    }
+
+    /**
+     * Delete all use data which matches the specified deletion_criteria.
+     *
+     * @param \context $context A user context.
+     */
+    public static function delete_data_for_all_users_in_context(\context $context) {
+    }
+
+    /**
+     * Delete all user data for the specified user, in the specified contexts.
+     *
+     * @param   approved_contextlist    $contextlist    The approved contexts and user information to delete information for.
+     */
+    public static function delete_data_for_user(approved_contextlist $contextlist) {
+    }
+
 }
