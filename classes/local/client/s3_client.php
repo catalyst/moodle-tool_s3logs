@@ -22,7 +22,7 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace tool_s3logs\client;
+namespace tool_s3logs\local\client;
 
 defined('MOODLE_INTERNAL') || die();
 

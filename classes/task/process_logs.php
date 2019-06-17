@@ -27,7 +27,7 @@ namespace tool_s3logs\task;
 
 defined('MOODLE_INTERNAL') || die();
 
-use tool_s3logs\client\s3_client;
+use tool_s3logs\local\client\s3_client;
 
 /**
  * Class to process logs.
