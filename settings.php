@@ -53,6 +53,9 @@ if ($hassiteconfig) {
                 get_string('archivesettings', 'tool_s3logs'),
                 get_string('archivesettings_desc', 'tool_s3logs')
                 ));
+        $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
+                get_string('usesdkcreds', 'tool_s3logs'),
+                get_string('usesdkcreds_desc', 'tool_s3logs'), 0));
 
         $settings->add(new admin_setting_configtext('tool_s3logs/maxlogage',
                 get_string('maxlogage', 'tool_s3logs' ),

@@ -61,14 +61,16 @@ class s3_client {
      * @return client $s3client S3 client.
      */
     private function get_s3_client() {
-        $s3client = S3Client::factory ( array (
-                'credentials' => array (
-                        'key' => $this->keyid,
-                        'secret' => $this->secretkey
-                ),
-                'region' => $this->s3region,
-                'version' => 'latest'
-        ) );
+        $settings = array(
+            'region' => $this->s3region,
+            'version' => 'latest'
+        );
+        $usesdkcreds = $this->config->usesdkcreds;
+        if (!$usesdkcreds) {
+            $settings['credentials'] = array('key' => $this->keyid, 'secret' => $this->secretkey);
+        }
+        $s3client = S3Client::factory($settings);
+
         return $s3client;
     }
 
