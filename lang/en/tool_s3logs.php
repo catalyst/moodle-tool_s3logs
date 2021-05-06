@@ -52,5 +52,6 @@ $string['s3region_desc'] = 'The AWS Region to use for API calls';
 $string['secretkey'] = 'Secret Key';
 $string['secretkey_desc'] = 'The AWS secret key used to make AWS API calls for S3';
 $string['privacy:metadata'] = 's3logs tool export Moodle standard log for archiving purposes';
-
+$string['usesdkcreds'] = 'Use the default credential provider chain to find AWS credentials';
+$string['usesdkcreds_desc'] = 'If Moodle is hosted inside AWS, the default credential chain can be used for access to s3 logs.';
 
