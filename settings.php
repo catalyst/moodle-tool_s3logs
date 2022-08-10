@@ -25,6 +25,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use local_aws\admin_settings_aws_region;
+
 global $PAGE;
 
 if ($hassiteconfig) {
@@ -88,21 +90,9 @@ if ($hassiteconfig) {
                 get_string('secretkey_desc', 'tool_s3logs'),
                 ''));
 
-        $regionoptions = array(
-               'us-east-1'      => 'us-east-1',
-               'us-east-2'      => 'us-east-2',
-               'us-west-1'      => 'us-west-1',
-               'us-west-2'      => 'us-west-2',
-               'ap-northeast-2' => 'ap-northeast-2',
-               'ap-southeast-1' => 'ap-southeast-1',
-               'ap-southeast-2' => 'ap-southeast-2',
-               'ap-northeast-1' => 'ap-northeast-1',
-               'eu-central-1'   => 'eu-central-1',
-               'eu-west-1'      => 'eu-west-1'
-                );
-        $settings->add(new admin_setting_configselect('tool_s3logs/s3region',
-                get_string('s3region', 'tool_s3logs' ),
+        $settings->add(new admin_settings_aws_region('tool_s3logs/s3region',
+                get_string('s3region', 'tool_s3logs'),
                 get_string('s3region_desc', 'tool_s3logs'),
-               'ap-southeast-2', $regionoptions));
+                'ap-southeast-2'));
     }
 }
