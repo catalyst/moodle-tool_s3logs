@@ -14,21 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace tool_s3logs\privacy;
+
 /**
  * Privacy Subsystem implementation for tool_s3logs.
  *
  * @package    tool_s3logs
  * @copyright  2018 Nathan Nguyen <nathannguyen@catalyst-net.au>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
-namespace tool_s3logs\privacy;
-
-defined('MOODLE_INTERNAL') || die();
-
-/**
- * The tool_s3logs privacy
- *
  */
 class provider implements \core_privacy\local\metadata\null_provider {
     /**

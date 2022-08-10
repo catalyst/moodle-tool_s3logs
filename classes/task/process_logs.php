@@ -14,18 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
- * Task to process logs.
- *
- * @package     tool_s3logs
- * @category    task
- * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
- * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace tool_s3logs\task;
-
-defined('MOODLE_INTERNAL') || die();
 
 use tool_s3logs\local\client\s3_client;
 
