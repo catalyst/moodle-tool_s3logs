@@ -139,11 +139,8 @@ class s3_client {
 
     /**
      * Tests connection to S3 and bucket.
-     * There is no check connection in the AWS API.
-     * We use list buckets instead and check the bucket is in the list.
      *
      * @return object
-     * @throws \coding_exception
      */
     public function test_connection() {
         $connection = new \stdClass();
