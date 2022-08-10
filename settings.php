@@ -55,9 +55,6 @@ if ($hassiteconfig) {
                 get_string('archivesettings', 'tool_s3logs'),
                 get_string('archivesettings_desc', 'tool_s3logs')
                 ));
-        $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
-                get_string('usesdkcreds', 'tool_s3logs'),
-                get_string('usesdkcreds_desc', 'tool_s3logs'), 0));
 
         $settings->add(new admin_setting_configtext('tool_s3logs/maxlogage',
                 get_string('maxlogage', 'tool_s3logs' ),
@@ -69,11 +66,15 @@ if ($hassiteconfig) {
                 get_string('prefix_desc', 'tool_s3logs'),
                 '', PARAM_ALPHA));
 
-        // AWS Bucket and S3 setttings.
+        // AWS Bucket and S3 settings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),
                 get_string('awss3settings_desc', 'tool_s3logs')
                 ));
+
+        $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
+                get_string('usesdkcreds', 'tool_s3logs'),
+                get_string('usesdkcreds_desc', 'tool_s3logs'), 0));
 
         $settings->add(new admin_setting_configtext('tool_s3logs/bucket',
                 get_string('bucket', 'tool_s3logs' ),
