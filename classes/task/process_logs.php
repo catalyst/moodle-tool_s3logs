@@ -123,7 +123,6 @@ class process_logs extends \core\task\scheduled_task {
                 $recordids[] = $key;
                 fputcsv($fp, (array)$value);
             }
-
         }
 
         return $recordids;
@@ -150,51 +149,55 @@ class process_logs extends \core\task\scheduled_task {
     public function execute() {
         $config = get_config('tool_s3logs');
 
-        // Set up basic vars.
-        $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
-        $stopat = time() + $config->maxruntime;
-
-        // Get a temp file.
-        mtrace('Getting temporary file...');
-        list ($tempfile, $fp) = $this->get_temp_file();
-
-        // Add the table headers to the temp file.
-        mtrace('Writing table headers to temporary file...');
-        $headerwrite = $this->write_file_headers($fp);
-        if (!$headerwrite) {
-            throw new \moodle_exception('noheaders', 'tool_s3logs', '');
-        }
-
-        // Extract records from DB and add them to the temp file.
-        mtrace('Finding records and updating temporary file...');
-        $starttime = time();
-        $recordids = $this->extract_records($stopat, $maxage, $fp);
-        fclose($fp); // Close file now that we have it.
-        $elapsedtime = time() - $starttime;
-
-        if (!empty($recordids)) {
-            // If file isn't empty upload this file to s3.
-            $numrecords = count($recordids);
-            $firstrecord = min($recordids);
-            $lastrecord = max($recordids);
-
-            $keyname = $config->prefix . '_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord . '.csv';
-            mtrace('Extracting records from DB took: ' . $elapsedtime . ' seconds...');
-            mtrace('Uploading ' . $numrecords . ' records to S3...');
-
-            $s3client = new s3_client();
-            $s3url = $s3client->upload_file($tempfile, $keyname);
-
-            if (!$s3url) {
-                throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
-            } else {
-                mtrace('Uploaded file name: '. $keyname);
-                // Delete the processed records from the log table.
-                mtrace('Deleting ' . $numrecords. ' records from DB...');
-                $this->delete_records($recordids);
-            }
+        if (empty($config->enable)) {
+            mtrace('Log archive tasks are disabled.');
         } else {
-            mtrace('No records found to process, finishing...');
+            // Set up basic vars.
+            $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
+            $stopat = time() + $config->maxruntime;
+
+            // Get a temp file.
+            mtrace('Getting temporary file...');
+            list ($tempfile, $fp) = $this->get_temp_file();
+
+            // Add the table headers to the temp file.
+            mtrace('Writing table headers to temporary file...');
+            $headerwrite = $this->write_file_headers($fp);
+            if (!$headerwrite) {
+                throw new \moodle_exception('noheaders', 'tool_s3logs', '');
+            }
+
+            // Extract records from DB and add them to the temp file.
+            mtrace('Finding records and updating temporary file...');
+            $starttime = time();
+            $recordids = $this->extract_records($stopat, $maxage, $fp);
+            fclose($fp); // Close file now that we have it.
+            $elapsedtime = time() - $starttime;
+
+            if (!empty($recordids)) {
+                // If file isn't empty upload this file to s3.
+                $numrecords = count($recordids);
+                $firstrecord = min($recordids);
+                $lastrecord = max($recordids);
+
+                $keyname = $config->prefix . '_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord . '.csv';
+                mtrace('Extracting records from DB took: ' . $elapsedtime . ' seconds...');
+                mtrace('Uploading ' . $numrecords . ' records to S3...');
+
+                $s3client = new s3_client();
+                $s3url = $s3client->upload_file($tempfile, $keyname);
+
+                if (!$s3url) {
+                    throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
+                } else {
+                    mtrace('Uploaded file name: '. $keyname);
+                    // Delete the processed records from the log table.
+                    mtrace('Deleting ' . $numrecords. ' records from DB...');
+                    $this->delete_records($recordids);
+                }
+            } else {
+                mtrace('No records found to process, finishing...');
+            }
         }
     }
 }
