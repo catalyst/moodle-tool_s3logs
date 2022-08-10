@@ -49,7 +49,7 @@ class s3_client {
      * Client.
      * @var \Aws\AwsClientInterface|null
      */
-    private $client;
+    private $client = null;
 
     /**
      * Constructor for S3 client class.
@@ -97,18 +97,18 @@ class s3_client {
     private function set_client() {
         if (!$this->is_configured()) {
             $this->client = null;
+        } else {
+            $settings = [
+                'region' => $this->config->s3region,
+                'version' => 'latest'
+            ];
+
+            if (!$this->config->usesdkcreds) {
+                $settings['credentials'] = ['key' => $this->config->keyid, 'secret' => $this->config->secretkey];
+            }
+
+            $this->client = S3Client::factory($settings);
         }
-
-        $settings = [
-            'region' => $this->config->s3region,
-            'version' => 'latest'
-        ];
-
-        if (!$this->config->usesdkcreds) {
-            $settings['credentials'] = ['key' => $this->config->keyid, 'secret' => $this->config->secretkey];
-        }
-
-        $this->client = S3Client::factory($settings);
     }
 
     /**
@@ -135,6 +135,67 @@ class s3_client {
         }
 
         return $s3url;
+    }
+
+    /**
+     * Tests connection to S3 and bucket.
+     * There is no check connection in the AWS API.
+     * We use list buckets instead and check the bucket is in the list.
+     *
+     * @return object
+     * @throws \coding_exception
+     */
+    public function test_connection() {
+        $connection = new \stdClass();
+        $connection->success = true;
+        $connection->details = '';
+
+        try {
+            if (!$this->is_functional()) {
+                $connection->success = false;
+                $connection->details = get_string('notconfigured', 'tool_s3logs');
+            } else {
+                $this->client->headBucket(array('Bucket' => $this->config->bucket));
+            }
+        } catch (\Aws\S3\Exception\S3Exception $e) {
+            $connection->success = false;
+            $connection->details = $this->get_exception_details($e);
+        } catch (\GuzzleHttp\Exception\InvalidArgumentException $e) {
+            $connection->success = false;
+            $connection->details = $this->get_exception_details($e);
+        } catch (\Aws\Exception\CredentialsException $e) {
+            $connection->success = false;
+            $connection->details = $this->get_exception_details($e);
+        }
+
+        return $connection;
+    }
+
+    /**
+     * Get details from the given exception.
+     *
+     * @param \Exception $exception Exception to get details from.
+     * @return string
+     */
+    private function get_exception_details(\Exception $exception): string {
+
+        if (get_class($exception) !== '\Aws\S3\Exception\S3Exception') {
+            $details = "Not a S3 exception : " . $exception->getMessage();
+        } else {
+            $details = ' ';
+            $message = $exception->getMessage();
+            $errorcode = $exception->getAwsErrorCode();
+
+            if ($message) {
+                $details .= "ERROR MSG: " . $message . "\n";
+            }
+
+            if ($errorcode) {
+                $details .= "ERROR CODE: " . $errorcode . "\n";
+            }
+        }
+
+        return $details;
     }
 
 }

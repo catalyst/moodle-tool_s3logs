@@ -25,6 +25,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use tool_s3logs\local\client\s3_client;
 use local_aws\admin_settings_aws_region;
 
 global $PAGE;
@@ -39,8 +40,7 @@ if ($hassiteconfig) {
         // General Settings.
         $settings->add(new admin_setting_heading('tool_s3logs_general',
                 get_string('generalsettings', 'tool_s3logs'),
-                get_string('generalsettings_desc', 'tool_s3logs')
-                ));
+                ''));
         $settings->add(new admin_setting_configcheckbox('tool_s3logs/enable',
                 get_string('enable', 'tool_s3logs'),
                 get_string('enable_desc', 'tool_s3logs'), 0));
@@ -53,8 +53,7 @@ if ($hassiteconfig) {
         // Log Archive settings.
         $settings->add(new admin_setting_heading('tool_s3logs_archive',
                 get_string('archivesettings', 'tool_s3logs'),
-                get_string('archivesettings_desc', 'tool_s3logs')
-                ));
+                ''));
 
         $settings->add(new admin_setting_configtext('tool_s3logs/maxlogage',
                 get_string('maxlogage', 'tool_s3logs' ),
@@ -66,11 +65,25 @@ if ($hassiteconfig) {
                 get_string('prefix_desc', 'tool_s3logs'),
                 '', PARAM_ALPHA));
 
+
+        $client = new s3_client();
+        $connection = $client->test_connection();
+
+        $status = '';
+
+        if ($connection->success) {
+            $status .= $OUTPUT->notification(get_string('connectionsuccess', 'tool_s3logs'), 'notifysuccess');
+        } else {
+            $status .= $OUTPUT->notification(
+                get_string('connectionfailure', 'tool_s3logs', $connection->details),
+                'notifyproblem'
+            );
+        }
+
         // AWS Bucket and S3 settings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),
-                get_string('awss3settings_desc', 'tool_s3logs')
-                ));
+                $status));
 
         $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
                 get_string('usesdkcreds', 'tool_s3logs'),
