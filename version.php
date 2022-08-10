@@ -29,6 +29,7 @@ $plugin->version = 2019061900;
 $plugin->release = 2019091900;
 $plugin->requires = 2017051509;
 $plugin->maturity = MATURITY_STABLE;
+$plugin->supported = [35, 401];
 $plugin->dependencies = array(
         'local_aws' => 2017030100
 );

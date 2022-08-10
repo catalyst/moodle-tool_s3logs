@@ -1,3 +1,6 @@
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/catalyst/moodle-tool_s3logs/ci/master)
+
+
 # Moodle to Amazon S3 Log Archiver #
 
 This plugin will take entries from teh Moodle standard log store table and export them to AWS S3.
