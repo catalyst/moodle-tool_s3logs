@@ -48,6 +48,8 @@ $string['maxruntime_desc'] = 'Background tasks handle the archiving and truncati
 $string['notconfigured'] = 'Missing configuration.';
 $string['prefix'] = 'Log file prefix';
 $string['prefix_desc'] = 'The prefix applied to the uploaded log filename.';
+$string['sdkcredsok'] = 'AWS credentials found. This setting can be safely enabled.';
+$string['sdkcredserror'] = 'Couldn\'t find AWS credentials. It\'s unsafe to enable this setting. Follow up <a href="https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/guide_credentials.html">AWS documentation</a>.';
 $string['s3region'] = 'AWS Region';
 $string['s3region_desc'] = 'The AWS Region to use for API calls';
 $string['secretkey'] = 'Secret Key';

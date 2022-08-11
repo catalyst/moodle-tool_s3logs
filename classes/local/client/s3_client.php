@@ -145,18 +145,60 @@ class s3_client {
         $connection = $this->test_connection();
         if ($connection->success) {
             $output .= $OUTPUT->notification(get_string('connectionsuccess', 'tool_s3logs'), 'success');
-
-            $permissions = $this->test_permissions();
-
-            if ($permissions->success) {
-                $output .= $OUTPUT->notification(key($permissions->messages), 'success');
-            } else {
-                foreach ($permissions->messages as $message => $type) {
-                    $output .= $OUTPUT->notification($message, $type);
-                }
-            }
+            $output .= $this->get_permissions_check_status();
         } else {
             $output .= $OUTPUT->notification(get_string('connectionfailure', 'tool_s3logs', $connection->details), 'error');
+        }
+
+        return $output;
+    }
+
+    /**
+     * Perform test connection and permission check using the default credential provider chain to find AWS credentials.
+     *
+     * @return string
+     */
+    public function get_sdk_credentials_status(): string {
+        global $OUTPUT;
+        $output = '';
+
+        if (empty($this->config->usesdkcreds)) {
+            // Emulate using default credentials to check the connection.
+            $this->config->usesdkcreds = 1;
+            $this->set_client();
+
+            $connection = $this->test_connection();
+            if ($connection->success) {
+                $output .= $OUTPUT->notification(get_string('sdkcredsok', 'tool_s3logs'), 'success');
+                $output .= $this->get_permissions_check_status();
+            } else {
+                $output .= $OUTPUT->notification(get_string('sdkcredserror', 'tool_s3logs'), 'warning');
+            }
+
+            // Revert the client.
+            $this->config->usesdkcreds = 0;
+            $this->set_client();
+        }
+
+        return $output;
+    }
+
+    /**
+     * Returns a status of the permissions check.
+     *
+     * @return string
+     */
+    private function get_permissions_check_status(): string {
+        global $OUTPUT;
+
+        $output = '';
+        $permissions = $this->test_permissions();
+        if ($permissions->success) {
+            $output .= $OUTPUT->notification(key($permissions->messages), 'success');
+        } else {
+            foreach ($permissions->messages as $message => $type) {
+                $output .= $OUTPUT->notification($message, $type);
+            }
         }
 
         return $output;
