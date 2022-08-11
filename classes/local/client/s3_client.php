@@ -144,19 +144,19 @@ class s3_client {
         $output = '';
         $connection = $this->test_connection();
         if ($connection->success) {
-            $output .= $OUTPUT->notification(get_string('connectionsuccess', 'tool_s3logs'), 'notifysuccess');
+            $output .= $OUTPUT->notification(get_string('connectionsuccess', 'tool_s3logs'), 'success');
 
             $permissions = $this->test_permissions();
 
             if ($permissions->success) {
-                $output .= $OUTPUT->notification(key($permissions->messages), 'notifysuccess');
+                $output .= $OUTPUT->notification(key($permissions->messages), 'success');
             } else {
                 foreach ($permissions->messages as $message => $type) {
                     $output .= $OUTPUT->notification($message, $type);
                 }
             }
         } else {
-            $output .= $OUTPUT->notification(get_string('connectionfailure', 'tool_s3logs', $connection->details), 'notifyproblem');
+            $output .= $OUTPUT->notification(get_string('connectionfailure', 'tool_s3logs', $connection->details), 'error');
         }
 
         return $output;
@@ -216,12 +216,12 @@ class s3_client {
                 ]);
             } catch (\Aws\S3\Exception\S3Exception $e) {
                 $details = $this->get_exception_details($e);
-                $permissions->messages[get_string('writefailure', 'tool_s3logs', $details)] = 'notifyproblem';
+                $permissions->messages[get_string('writefailure', 'tool_s3logs', $details)] = 'error';
                 $permissions->success = false;
             }
 
             if ($permissions->success) {
-                $permissions->messages[get_string('permissioncheckpassed', 'tool_s3logs')] = 'notifysuccess';
+                $permissions->messages[get_string('permissioncheckpassed', 'tool_s3logs')] = 'success';
             }
         }
 
