@@ -31,6 +31,7 @@ use core_privacy\local\request\userlist;
  */
 class provider implements
     \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
     \core_privacy\local\request\plugin\provider {
 
     /**
