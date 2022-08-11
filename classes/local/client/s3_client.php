@@ -40,63 +40,155 @@ use Aws\S3\S3Client;
 class s3_client {
 
     /**
+     * Plugin config.
+     * @var false|mixed|object|string
+     */
+    private $config;
+
+    /**
+     * Client.
+     * @var \Aws\AwsClientInterface|null
+     */
+    private $client = null;
+
+    /**
      * Constructor for S3 client class.
-     * Makes relevant config available and bootstraps
-     * AWS S3 client.
+     *
+     * Makes relevant config available and bootstraps AWS S3 client.
      *
      * @return void
      */
     public function __construct() {
         $this->config = get_config('tool_s3logs');
-        $this->s3region = $this->config->s3region;
-        $this->keyid = $this->config->keyid;
-        $this->secretkey = $this->config->secretkey;
-        $this->bucket = $this->config->bucket;
-        $this->client = $this->get_s3_client();
+        $this->set_client();
     }
 
     /**
-     * Create AWS S3 client.
-     *
-     * @return client $s3client S3 client.
+     * Check if the client is functional.
+     * @return bool
      */
-    private function get_s3_client() {
-        $settings = array(
-            'region' => $this->s3region,
-            'version' => 'latest'
-        );
-        $usesdkcreds = $this->config->usesdkcreds;
-        if (!$usesdkcreds) {
-            $settings['credentials'] = array('key' => $this->keyid, 'secret' => $this->secretkey);
-        }
-        $s3client = S3Client::factory($settings);
+    private function is_functional(): bool {
+        return isset($this->client);
+    }
 
-        return $s3client;
+    /**
+     * Check if the client configured properly.
+     * @return bool
+     */
+    private function is_configured(): bool {
+        if (empty($this->config->bucket) || empty($this->config->s3region)) {
+            return false;
+        }
+
+        if (empty($this->config->usesdkcreds) && (empty($this->config->keyid) || empty($this->config->secretkey))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Sets AWS S3 client.
+     */
+    private function set_client() {
+        if (!$this->is_configured()) {
+            $this->client = null;
+        } else {
+            $settings = [
+                'region' => $this->config->s3region,
+                'version' => 'latest'
+            ];
+
+            if (!$this->config->usesdkcreds) {
+                $settings['credentials'] = ['key' => $this->config->keyid, 'secret' => $this->config->secretkey];
+            }
+
+            $this->client = S3Client::factory($settings);
+        }
     }
 
     /**
      * Uploads a temp local file to s3.
-     * If the uipload operation fails the parent
-     * AWS client lib will throw an error.
+     *
+     * If the upload operation fails the parent AWS client lib will throw an error.
      * This won't fail silently.
      *
      * @param string $filepath The path to the temp file.
      * @param string $keyname The nbame to give the object in S3.
-     * @return string $s3url The URL to the object in S3
+     * @return string|null $s3url The URL to the object in S3
      */
-    public function upload_file($filepath, $keyname) {
-        $s3client = $this->client;
-        $s3url = false;
-        $result = $s3client->putObject(array(
-                'Bucket'       => $this->bucket,
-                'Key'          => $keyname,
-                'SourceFile'   => $filepath,
-                'ContentType'  => 'text/csv'
+    public function upload_file(string $filepath, string $keyname): ?string {
+        $s3url = null;
 
-        ));
-        $s3url = $result['ObjectURL'];
+        if ($this->is_functional()) {
+            $result = $this->client->putObject([
+                'Bucket' => $this->config->bucket,
+                'Key' => $keyname,
+                'SourceFile' => $filepath,
+                'ContentType' => 'text/csv'
+            ]);
+            $s3url = $result['ObjectURL'];
+        }
 
         return $s3url;
+    }
+
+    /**
+     * Tests connection to S3 and bucket.
+     *
+     * @return object
+     */
+    public function test_connection() {
+        $connection = new \stdClass();
+        $connection->success = true;
+        $connection->details = '';
+
+        try {
+            if (!$this->is_functional()) {
+                $connection->success = false;
+                $connection->details = get_string('notconfigured', 'tool_s3logs');
+            } else {
+                $this->client->headBucket(array('Bucket' => $this->config->bucket));
+            }
+        } catch (\Aws\S3\Exception\S3Exception $e) {
+            $connection->success = false;
+            $connection->details = $this->get_exception_details($e);
+        } catch (\GuzzleHttp\Exception\InvalidArgumentException $e) {
+            $connection->success = false;
+            $connection->details = $this->get_exception_details($e);
+        } catch (\Aws\Exception\CredentialsException $e) {
+            $connection->success = false;
+            $connection->details = $this->get_exception_details($e);
+        }
+
+        return $connection;
+    }
+
+    /**
+     * Get details from the given exception.
+     *
+     * @param \Exception $exception Exception to get details from.
+     * @return string
+     */
+    private function get_exception_details(\Exception $exception): string {
+
+        if (get_class($exception) !== '\Aws\S3\Exception\S3Exception') {
+            $details = "Not a S3 exception : " . $exception->getMessage();
+        } else {
+            $details = ' ';
+            $message = $exception->getMessage();
+            $errorcode = $exception->getAwsErrorCode();
+
+            if ($message) {
+                $details .= "ERROR MSG: " . $message . "\n";
+            }
+
+            if ($errorcode) {
+                $details .= "ERROR CODE: " . $errorcode . "\n";
+            }
+        }
+
+        return $details;
     }
 
 }
