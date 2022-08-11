@@ -75,7 +75,7 @@ if ($hassiteconfig) {
 
         $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
                 get_string('usesdkcreds', 'tool_s3logs'),
-                get_string('usesdkcreds_desc', 'tool_s3logs'), 0));
+                get_string('usesdkcreds_desc', 'tool_s3logs') . $client->get_sdk_credentials_status(), 0));
 
         $settings->add(new admin_setting_configtext('tool_s3logs/bucket',
                 get_string('bucket', 'tool_s3logs' ),
