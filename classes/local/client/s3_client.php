@@ -134,6 +134,35 @@ class s3_client {
     }
 
     /**
+     * Returns a status message for the client.
+     *
+     * @return string
+     */
+    public function get_client_status_message(): string {
+        global $OUTPUT;
+
+        $output = '';
+        $connection = $this->test_connection();
+        if ($connection->success) {
+            $output .= $OUTPUT->notification(get_string('connectionsuccess', 'tool_s3logs'), 'notifysuccess');
+
+            $permissions = $this->test_permissions();
+
+            if ($permissions->success) {
+                $output .= $OUTPUT->notification(key($permissions->messages), 'notifysuccess');
+            } else {
+                foreach ($permissions->messages as $message => $type) {
+                    $output .= $OUTPUT->notification($message, $type);
+                }
+            }
+        } else {
+            $output .= $OUTPUT->notification(get_string('connectionfailure', 'tool_s3logs', $connection->details), 'notifyproblem');
+        }
+
+        return $output;
+    }
+
+    /**
      * Tests connection to S3 and bucket.
      *
      * @return object
@@ -162,6 +191,41 @@ class s3_client {
         }
 
         return $connection;
+    }
+
+    /**
+     * Tests permissions to write to S3 bucket.
+     *
+     * @return object
+     */
+    public function test_permissions() {
+        $permissions = new \stdClass();
+
+        $permissions->success = true;
+        $permissions->messages = [];
+
+        if ($this->is_functional()) {
+            $permissions->success = false;
+            $permissions->messages = [];
+        } else {
+            try {
+                $result = $this->client->putObject([
+                    'Bucket' => $this->config->bucket,
+                    'Key' => 'permissions_check_file',
+                    'Body' => 'test upload content',
+                ]);
+            } catch (\Aws\S3\Exception\S3Exception $e) {
+                $details = $this->get_exception_details($e);
+                $permissions->messages[get_string('writefailure', 'tool_s3logs', $details)] = 'notifyproblem';
+                $permissions->success = false;
+            }
+
+            if ($permissions->success) {
+                $permissions->messages[get_string('permissioncheckpassed', 'tool_s3logs')] = 'notifysuccess';
+            }
+        }
+
+        return $permissions;
     }
 
     /**
