@@ -43,7 +43,7 @@ class provider implements
         $collection->add_external_location_link('s3logs', [
             'userid' => 'privacy:metadata:tool_s3logs:userid',
             'relateduserid' => 'privacy:metadata:tool_s3logs:relateduserid',
-            'realuserid' => 'privacy:tool_s3logs:log:realuserid',
+            'realuserid' => 'privacy:metadata:tool_s3logs:realuserid',
         ], 'privacy:metadata:tool_s3logs:externalpurpose');
 
         return $collection;
