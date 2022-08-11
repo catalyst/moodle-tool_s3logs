@@ -67,23 +67,11 @@ if ($hassiteconfig) {
 
 
         $client = new s3_client();
-        $connection = $client->test_connection();
-
-        $status = '';
-
-        if ($connection->success) {
-            $status .= $OUTPUT->notification(get_string('connectionsuccess', 'tool_s3logs'), 'notifysuccess');
-        } else {
-            $status .= $OUTPUT->notification(
-                get_string('connectionfailure', 'tool_s3logs', $connection->details),
-                'notifyproblem'
-            );
-        }
 
         // AWS Bucket and S3 settings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),
-                $status));
+                $client->get_client_status_message()));
 
         $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
                 get_string('usesdkcreds', 'tool_s3logs'),

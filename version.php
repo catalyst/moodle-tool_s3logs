@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_s3logs';
-$plugin->version = 2022081001;
-$plugin->release = 2022081001;
+$plugin->version = 2022081002;
+$plugin->release = 2022081002;
 $plugin->requires = 2017051509;
 $plugin->maturity = MATURITY_STABLE;
 $plugin->supported = [35, 401];
