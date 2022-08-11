@@ -76,11 +76,7 @@ class s3_client {
      * @return bool
      */
     private function is_configured(): bool {
-        if (empty($this->config->bucket)) {
-            return false;
-        }
-
-        if (empty($this->config->s3region)) {
+        if (empty($this->config->bucket) || empty($this->config->s3region)) {
             return false;
         }
 
