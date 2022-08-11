@@ -75,7 +75,7 @@ class s3_client {
      * Check if the client configured properly.
      * @return bool
      */
-    private function is_configured(): bool {
+    public function is_configured(): bool {
         if (empty($this->config->bucket) || empty($this->config->s3region)) {
             return false;
         }
