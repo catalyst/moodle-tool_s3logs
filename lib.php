@@ -15,21 +15,29 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * Lib functions.
  *
- * @package     tool_s3logs
- * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
- * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    tool_s3logs
+ * @author     Dmitrii Metelkin <dmitriim@catalyst-au.net>
+ * @copyright  Catalyst IT
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+use tool_s3logs\local\client\s3_client;
 
-$plugin->component = 'tool_s3logs';
-$plugin->version = 2022081100;
-$plugin->release = 2022081100;
-$plugin->requires = 2017051509;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->supported = [35, 401];
-$plugin->dependencies = array(
-        'local_aws' => 2017030100
-);
+/**
+ * Get status checks for tool_s3logs.
+ *
+ * @return array
+ */
+function tool_s3logs_status_checks(): array {
+    $client = new s3_client();
+
+    if ($client->is_configured()) {
+        return [
+            new tool_s3logs\check\status()
+        ];
+    }
+
+    return [];
+}
