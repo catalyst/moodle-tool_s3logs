@@ -37,6 +37,19 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('tool_s3logs_settings', '', get_string('pluginnamedesc', 'tool_s3logs')));
 
     if (! during_initial_install ()) {
+        $clientstatus = '';
+        $sdkstatus = '';
+
+        // Check client actual status only when we are on the settings page.
+        if ($PAGE->has_set_url()) {
+            $settingsurl = new moodle_url('/admin/settings.php');
+            if ($settingsurl->compare($PAGE->url, URL_MATCH_BASE) && $PAGE->url->get_param('section') == 'tool_s3logs') {
+                $client = new s3_client();
+                $clientstatus = $client->get_client_status_message();
+                $sdkstatus = $client->get_sdk_credentials_status();
+            }
+        }
+
         // General Settings.
         $settings->add(new admin_setting_heading('tool_s3logs_general',
                 get_string('generalsettings', 'tool_s3logs'),
@@ -65,17 +78,14 @@ if ($hassiteconfig) {
                 get_string('prefix_desc', 'tool_s3logs'),
                 '', PARAM_ALPHA));
 
-
-        $client = new s3_client();
-
         // AWS Bucket and S3 settings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),
-                $client->get_client_status_message()));
+                $clientstatus));
 
         $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
                 get_string('usesdkcreds', 'tool_s3logs'),
-                get_string('usesdkcreds_desc', 'tool_s3logs') . $client->get_sdk_credentials_status(), 0));
+                get_string('usesdkcreds_desc', 'tool_s3logs') . $sdkstatus, 0));
 
         $settings->add(new admin_setting_configtext('tool_s3logs/bucket',
                 get_string('bucket', 'tool_s3logs' ),
