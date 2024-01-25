@@ -246,7 +246,7 @@ class s3_client {
         $permissions->success = true;
         $permissions->messages = [];
 
-        if ($this->is_functional()) {
+        if (!$this->is_functional()) {
             $permissions->success = false;
             $permissions->messages = [];
         } else {
