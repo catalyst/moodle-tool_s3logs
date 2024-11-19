@@ -14,19 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
- * S3 Client helper class.
- *
- * @package     tool_s3logs
- * @copyright   2017 Matt Porritt <mattp@catalyst-au.net>
- * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
 
 namespace tool_s3logs\local\client;
-
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/local/aws/sdk/aws-autoloader.php');
 
 use Aws\S3\S3Client;
 
@@ -103,7 +92,7 @@ class s3_client {
                 $settings['credentials'] = ['key' => $this->config->keyid, 'secret' => $this->config->secretkey];
             }
 
-            $this->client = S3Client::factory($settings);
+            $this->client = new S3Client($settings);
         }
     }
 

@@ -1,4 +1,4 @@
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/catalyst/moodle-tool_s3logs/ci/master)
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/catalyst/moodle-tool_s3logs/ci/MOODLE_405_STABLE)
 
 
 # Moodle to Amazon S3 Log Archiver #
@@ -14,13 +14,17 @@ The plugin functionality runs as a Moodle scheduled task.
 ## Supported Moodle Versions
 This plugin currently supports Moodle:
 
-* 3.5+
+| Moodle version    | Branch            |
+|-------------------|-------------------|
+| Moodle 4.5+       | MOODLE_405_STABLE |
+| Moodle 3.5 to 4.1 | master            |
+
+
 
 ## Installation
 
 1. Get the code and copy/ install it to: `<moodledir>/admin/tool/s3logs`
-2. This plugin also depends on *local_aws* get the code from `https://github.com/catalyst/moodle-local_aws` and copy/ install it into `<moodledir>/local/aws`
-3. Run the upgrade: `sudo -u www-data php admin/cli/upgrade` **Note:** the user may be different to www-data on your system.
+2. Run the upgrade: `sudo -u www-data php admin/cli/upgrade` **Note:** the user may be different to www-data on your system.
 
 ## Configuration
 1. Configure the plugin in *Site administration > Plugins > Admin Tools > S3 log archiver*.
