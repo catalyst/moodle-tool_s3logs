@@ -26,7 +26,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 use tool_s3logs\local\client\s3_client;
-use local_aws\admin_settings_aws_region;
+use tool_s3logs\admin_settings_aws_region;
 
 global $PAGE;
 
