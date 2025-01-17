@@ -1,4 +1,4 @@
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/catalyst/moodle-tool_s3logs/ci/MOODLE_405_STABLE)
+[![ci](https://github.com/catalyst/moodle-tool_s3logs/actions/workflows/ci.yml/badge.svg?branch=MOODLE_405_STABLE)](https://github.com/catalyst/moodle-tool_s3logs/actions/workflows/ci.yml?branch=MOODLE_405_STABLE)
 
 
 # Moodle to Amazon S3 Log Archiver #
