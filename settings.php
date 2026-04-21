@@ -78,6 +78,20 @@ if ($hassiteconfig) {
                 get_string('prefix_desc', 'tool_s3logs'),
                 '', PARAM_ALPHA));
 
+        $settings->add(new admin_setting_configtext('tool_s3logs/courseids',
+                get_string('courseids', 'tool_s3logs'),
+                get_string('courseids_desc', 'tool_s3logs'),
+                '', PARAM_SEQUENCE));
+
+        $settings->add(new admin_setting_configselect('tool_s3logs/coursefiltermode',
+                get_string('coursefiltermode', 'tool_s3logs'),
+                get_string('coursefiltermode_desc', 'tool_s3logs'),
+                'include',
+                [
+                    'include' => get_string('coursefiltermode_include', 'tool_s3logs'),
+                    'exclude' => get_string('coursefiltermode_exclude', 'tool_s3logs'),
+                ]));
+
         // AWS Bucket and S3 settings.
         $settings->add(new admin_setting_heading('tool_s3logs_awss3',
                 get_string('awss3settings', 'tool_s3logs'),

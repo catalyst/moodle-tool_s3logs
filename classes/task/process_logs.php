@@ -73,6 +73,37 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
+     * Build SQL condition and params for the course ID filter.
+     *
+     * Returns an empty string and empty array when no filter is configured.
+     *
+     * @param object $config Plugin config.
+     * @return array [$sql, $params] ready to append to a WHERE clause.
+     */
+    private function get_course_filter_sql($config): array {
+        global $DB;
+
+        $raw = isset($config->courseids) ? trim($config->courseids) : '';
+        if ($raw === '') {
+            return ['', []];
+        }
+
+        // Split, trim, and keep only strictly numeric tokens to avoid accidentally
+        // targeting course 0 (e.g. "1,2,3,abc" must not become "1,2,3,0").
+        $tokens = array_map('trim', explode(',', $raw));
+        $ids = array_map('intval', array_filter($tokens, 'ctype_digit'));
+
+        if (empty($ids)) {
+            return ['', []];
+        }
+
+        $mode = isset($config->coursefiltermode) ? $config->coursefiltermode : 'include';
+        [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_QM, 'param', $mode !== 'exclude');
+
+        return [" AND courseid $insql", $inparams];
+    }
+
+    /**
      * Extract the log records from the db and write
      * to a temporary file.
      *
@@ -83,9 +114,10 @@ class process_logs extends \core\task\scheduled_task {
      * @param int $stopat The time to stop process, if there are still records.
      * @param int $interval Interval of months in seconds.
      * @param resource $fp File pointer to temp file to write to.
+     * @param object $config Plugin config.
      * @return array $recordids the ID's of the log entries written to the file.
      */
-    private function extract_records($stopat, $interval, $fp) {
+    private function extract_records($stopat, $interval, $fp, $config) {
         global $DB;
 
         $threshold = time() - $interval;
@@ -96,13 +128,15 @@ class process_logs extends \core\task\scheduled_task {
 
         mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
+        [$coursefiltersql, $coursefilterparams] = $this->get_course_filter_sql($config);
+
         // Get 1000 rows of data from the log table order by oldest first.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
         while (time() <= $stopat) {
             $results = $DB->get_records_select(
                     'logstore_standard_log',
-                    'timecreated <= ?',
-                    array($threshold),
+                    'timecreated <= ?' . $coursefiltersql,
+                    array_merge([$threshold], $coursefilterparams),
                     'timecreated ASC',
                     '*',
                     $start,
@@ -170,7 +204,7 @@ class process_logs extends \core\task\scheduled_task {
             // Extract records from DB and add them to the temp file.
             mtrace('Finding records and updating temporary file...');
             $starttime = time();
-            $recordids = $this->extract_records($stopat, $maxage, $fp);
+            $recordids = $this->extract_records($stopat, $maxage, $fp, $config);
             fclose($fp); // Close file now that we have it.
             $elapsedtime = time() - $starttime;
 
