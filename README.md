@@ -31,6 +31,27 @@ This plugin currently supports Moodle:
 2. The schedule for the plugin task can be altered at *Site administration > Server > Scheduled tasks*
 3. The scheduled task can also be run manually from your *moodledir*. `sudo -u www-data php admin/tool/task/cli/schedule_task.php --execute=\\tool_s3logs\\task\\process_logs`  **Note:** the user may be different to www-data on your system.
 
+### Extra Configuration
+
+#### Course ID Filter
+
+The plugin can be configured to restrict which logs are archived based on course ID. This is useful when you want to target a specific subset of logs rather than archiving everything older than the maximum age.
+
+Two settings control this behaviour:
+
+- **Course ID filter**: A comma-separated list of course IDs (e.g. `0`, `0,1`, `42,107`). Leave blank to archive logs for all courses (default behaviour).
+- **Course filter mode**: Whether to **Include** or **Exclude** the listed course IDs from archiving.
+
+**Example**: Archive only non-course logs
+
+A common use case is to archive site-level logs (where `courseid = 0` or `courseid = 1`) while leaving course logs untouched in the database for faster querying.
+
+1. Go to *Site administration > Plugins > Admin Tools > S3 log archiver*
+2. Set *Course ID filter* to `0,1`
+3. Set *Course filter mode* to `Include`
+
+The archiver will now only process log entries that do not belong to a real course, archiving them to S3 and removing them from the database.
+
 
 # Crafted by Catalyst IT
 
@@ -44,7 +65,7 @@ https://www.catalyst-au.net/
 
 # Contributing and Support
 
-Issues, and pull requests using github are welcome and encouraged! 
+Issues, and pull requests using github are welcome and encouraged!
 
 https://github.com/catalyst/moodle-tool_s3logs/issues
 
