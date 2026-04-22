@@ -25,13 +25,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$tasks = array(
-        array(
+$tasks = [
+        [
                 'classname' => 'tool_s3logs\task\process_logs',
                 'blocking' => 0,
                 'minute' => '01',
                 'hour' => '01',
                 'dayofweek' => '6',
-                'month' => '*'
-        )
-);
+                'month' => '*',
+        ],
+];

@@ -27,7 +27,6 @@ use tool_s3logs\local\client\s3_client;
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class process_logs extends \core\task\scheduled_task {
-
     /**
      * {@inheritDoc}
      * @see \core\task\scheduled_task::get_name()
@@ -46,10 +45,10 @@ class process_logs extends \core\task\scheduled_task {
      */
     private function get_temp_file() {
         $tempdir = make_temp_directory('s3logs_upload');
-        $tempfile = tempnam ($tempdir, 's3logs_');
+        $tempfile = tempnam($tempdir, 's3logs_');
         $fp = fopen($tempfile, 'w');
 
-        return array ($tempfile, $fp);
+        return  [$tempfile, $fp];
     }
 
     /**
@@ -63,7 +62,7 @@ class process_logs extends \core\task\scheduled_task {
         global $DB;
 
         $headerrecords = $DB->get_columns('logstore_standard_log');
-        $headers = array();
+        $headers = [];
         foreach ($headerrecords as $key => $value) {
             $headers[] = $key;
         }
@@ -121,7 +120,7 @@ class process_logs extends \core\task\scheduled_task {
         global $DB;
 
         $threshold = time() - $interval;
-        $recordids = array();
+        $recordids = [];
         $start = 0;
         $limit = 1000;
         $step = 1000;
@@ -134,14 +133,14 @@ class process_logs extends \core\task\scheduled_task {
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
         while (time() <= $stopat) {
             $results = $DB->get_records_select(
-                    'logstore_standard_log',
-                    'timecreated <= ?' . $coursefiltersql,
-                    array_merge([$threshold], $coursefilterparams),
-                    'timecreated ASC',
-                    '*',
-                    $start,
-                    $limit
-                    );
+                'logstore_standard_log',
+                'timecreated <= ?' . $coursefiltersql,
+                array_merge([$threshold], $coursefilterparams),
+                'timecreated ASC',
+                '*',
+                $start,
+                $limit
+            );
 
             if (empty($results)) {
                 mtrace('Records processing finished before time limit reached');
@@ -167,7 +166,7 @@ class process_logs extends \core\task\scheduled_task {
      *
      * @param array $recordids Array of record ID's to delete
      */
-    private function delete_records ($recordids) {
+    private function delete_records($recordids) {
         global $DB;
 
         $chunks = array_chunk($recordids, 1000, true);
@@ -192,7 +191,7 @@ class process_logs extends \core\task\scheduled_task {
 
             // Get a temp file.
             mtrace('Getting temporary file...');
-            list ($tempfile, $fp) = $this->get_temp_file();
+             [$tempfile, $fp] = $this->get_temp_file();
 
             // Add the table headers to the temp file.
             mtrace('Writing table headers to temporary file...');
@@ -214,7 +213,7 @@ class process_logs extends \core\task\scheduled_task {
                 $firstrecord = min($recordids);
                 $lastrecord = max($recordids);
 
-                $keyname = $config->prefix . '_' . date('YmdHis'). '_' . $firstrecord . '_' . $lastrecord . '.csv';
+                $keyname = $config->prefix . '_' . date('YmdHis') . '_' . $firstrecord . '_' . $lastrecord . '.csv';
                 mtrace('Extracting records from DB took: ' . $elapsedtime . ' seconds...');
                 mtrace('Uploading ' . $numrecords . ' records to S3...');
 
@@ -224,9 +223,9 @@ class process_logs extends \core\task\scheduled_task {
                 if (!$s3url) {
                     throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
                 } else {
-                    mtrace('Uploaded file name: '. $keyname);
+                    mtrace('Uploaded file name: ' . $keyname);
                     // Delete the processed records from the log table.
-                    mtrace('Deleting ' . $numrecords. ' records from DB...');
+                    mtrace('Deleting ' . $numrecords . ' records from DB...');
                     $this->delete_records($recordids);
                 }
             } else {

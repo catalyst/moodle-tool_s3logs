@@ -35,7 +35,7 @@ function tool_s3logs_status_checks(): array {
 
     if ($client->is_configured()) {
         return [
-            new tool_s3logs\check\status()
+            new tool_s3logs\check\status(),
         ];
     }
 

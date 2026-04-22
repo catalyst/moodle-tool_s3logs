@@ -28,7 +28,6 @@ require_once($CFG->dirroot . '/lib/adminlib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class admin_settings_aws_region extends \admin_setting_configtext {
-
     /**
      * Return part of form with setting.
      *
@@ -36,7 +35,7 @@ class admin_settings_aws_region extends \admin_setting_configtext {
      * @param string $query
      * @return string
      */
-    public function output_html($data, $query='') {
+    public function output_html($data, $query = '') {
         global $CFG, $OUTPUT;
 
         $default = $this->get_defaultsetting();

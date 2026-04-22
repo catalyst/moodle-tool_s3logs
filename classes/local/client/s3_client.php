@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-
 namespace tool_s3logs\local\client;
 
 use Aws\S3\S3Client;
@@ -27,7 +26,6 @@ use Aws\S3\S3Client;
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class s3_client {
-
     /**
      * Plugin config.
      * @var false|mixed|object|string
@@ -85,7 +83,7 @@ class s3_client {
         } else {
             $settings = [
                 'region' => $this->config->s3region,
-                'version' => 'latest'
+                'version' => 'latest',
             ];
 
             if (!$this->config->usesdkcreds) {
@@ -114,7 +112,7 @@ class s3_client {
                 'Bucket' => $this->config->bucket,
                 'Key' => $keyname,
                 'SourceFile' => $filepath,
-                'ContentType' => 'text/csv'
+                'ContentType' => 'text/csv',
             ]);
             $s3url = $result['ObjectURL'];
         }
@@ -208,7 +206,7 @@ class s3_client {
                 $connection->success = false;
                 $connection->details = get_string('notconfigured', 'tool_s3logs');
             } else {
-                $this->client->headBucket(array('Bucket' => $this->config->bucket));
+                $this->client->headBucket(['Bucket' => $this->config->bucket]);
             }
         } catch (\Aws\S3\Exception\S3Exception $e) {
             $connection->success = false;
@@ -285,5 +283,4 @@ class s3_client {
 
         return $details;
     }
-
 }
