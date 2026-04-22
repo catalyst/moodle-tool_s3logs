@@ -36,7 +36,7 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_heading('tool_s3logs_settings', '', get_string('pluginnamedesc', 'tool_s3logs')));
 
-    if (! during_initial_install ()) {
+    if (! during_initial_install()) {
         $clientstatus = '';
         $sdkstatus = '';
 
@@ -51,60 +51,109 @@ if ($hassiteconfig) {
         }
 
         // General Settings.
-        $settings->add(new admin_setting_heading('tool_s3logs_general',
-                get_string('generalsettings', 'tool_s3logs'),
-                ''));
-        $settings->add(new admin_setting_configcheckbox('tool_s3logs/enable',
-                get_string('enable', 'tool_s3logs'),
-                get_string('enable_desc', 'tool_s3logs'), 0));
+        $settings->add(new admin_setting_heading(
+            'tool_s3logs_general',
+            get_string('generalsettings', 'tool_s3logs'),
+            ''
+        ));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_s3logs/enable',
+            get_string('enable', 'tool_s3logs'),
+            get_string('enable_desc', 'tool_s3logs'),
+            0
+        ));
 
-        $settings->add(new admin_setting_configduration('tool_s3logs/maxruntime',
-                get_string('maxruntime', 'tool_s3logs' ),
-                get_string('maxruntime_desc', 'tool_s3logs'),
-                '86400'));
+        $settings->add(new admin_setting_configduration(
+            'tool_s3logs/maxruntime',
+            get_string('maxruntime', 'tool_s3logs'),
+            get_string('maxruntime_desc', 'tool_s3logs'),
+            '86400'
+        ));
 
         // Log Archive settings.
-        $settings->add(new admin_setting_heading('tool_s3logs_archive',
-                get_string('archivesettings', 'tool_s3logs'),
-                ''));
+        $settings->add(new admin_setting_heading(
+            'tool_s3logs_archive',
+            get_string('archivesettings', 'tool_s3logs'),
+            ''
+        ));
 
-        $settings->add(new admin_setting_configtext('tool_s3logs/maxlogage',
-                get_string('maxlogage', 'tool_s3logs' ),
-                get_string('maxlogage_desc', 'tool_s3logs'),
-                18, PARAM_INT));
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/maxlogage',
+            get_string('maxlogage', 'tool_s3logs'),
+            get_string('maxlogage_desc', 'tool_s3logs'),
+            18,
+            PARAM_INT
+        ));
 
-        $settings->add(new admin_setting_configtext('tool_s3logs/prefix',
-                get_string('prefix', 'tool_s3logs' ),
-                get_string('prefix_desc', 'tool_s3logs'),
-                '', PARAM_ALPHA));
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/prefix',
+            get_string('prefix', 'tool_s3logs'),
+            get_string('prefix_desc', 'tool_s3logs'),
+            '',
+            PARAM_ALPHA
+        ));
+
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/courseids',
+            get_string('courseids', 'tool_s3logs'),
+            get_string('courseids_desc', 'tool_s3logs'),
+            '',
+            PARAM_SEQUENCE
+        ));
+
+        $settings->add(new admin_setting_configselect(
+            'tool_s3logs/coursefiltermode',
+            get_string('coursefiltermode', 'tool_s3logs'),
+            get_string('coursefiltermode_desc', 'tool_s3logs'),
+            'include',
+            [
+                    'include' => get_string('coursefiltermode_include', 'tool_s3logs'),
+                    'exclude' => get_string('coursefiltermode_exclude', 'tool_s3logs'),
+            ]
+        ));
 
         // AWS Bucket and S3 settings.
-        $settings->add(new admin_setting_heading('tool_s3logs_awss3',
-                get_string('awss3settings', 'tool_s3logs'),
-                $clientstatus));
+        $settings->add(new admin_setting_heading(
+            'tool_s3logs_awss3',
+            get_string('awss3settings', 'tool_s3logs'),
+            $clientstatus
+        ));
 
-        $settings->add(new admin_setting_configcheckbox('tool_s3logs/usesdkcreds',
-                get_string('usesdkcreds', 'tool_s3logs'),
-                get_string('usesdkcreds_desc', 'tool_s3logs') . $sdkstatus, 0));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_s3logs/usesdkcreds',
+            get_string('usesdkcreds', 'tool_s3logs'),
+            get_string('usesdkcreds_desc', 'tool_s3logs') . $sdkstatus,
+            0
+        ));
 
-        $settings->add(new admin_setting_configtext('tool_s3logs/bucket',
-                get_string('bucket', 'tool_s3logs' ),
-                get_string('bucket_desc', 'tool_s3logs'),
-                '', PARAM_TEXT));
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/bucket',
+            get_string('bucket', 'tool_s3logs'),
+            get_string('bucket_desc', 'tool_s3logs'),
+            '',
+            PARAM_TEXT
+        ));
 
-        $settings->add(new admin_setting_configtext('tool_s3logs/keyid',
-                get_string('keyid', 'tool_s3logs' ),
-                get_string('keyid_desc', 'tool_s3logs'),
-                '', PARAM_TEXT));
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/keyid',
+            get_string('keyid', 'tool_s3logs'),
+            get_string('keyid_desc', 'tool_s3logs'),
+            '',
+            PARAM_TEXT
+        ));
 
-        $settings->add(new admin_setting_configpasswordunmask('tool_s3logs/secretkey',
-                get_string('secretkey', 'tool_s3logs' ),
-                get_string('secretkey_desc', 'tool_s3logs'),
-                ''));
+        $settings->add(new admin_setting_configpasswordunmask(
+            'tool_s3logs/secretkey',
+            get_string('secretkey', 'tool_s3logs'),
+            get_string('secretkey_desc', 'tool_s3logs'),
+            ''
+        ));
 
-        $settings->add(new admin_settings_aws_region('tool_s3logs/s3region',
-                get_string('s3region', 'tool_s3logs'),
-                get_string('s3region_desc', 'tool_s3logs'),
-                'ap-southeast-2'));
+        $settings->add(new admin_settings_aws_region(
+            'tool_s3logs/s3region',
+            get_string('s3region', 'tool_s3logs'),
+            get_string('s3region_desc', 'tool_s3logs'),
+            'ap-southeast-2'
+        ));
     }
 }

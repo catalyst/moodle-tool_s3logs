@@ -33,14 +33,13 @@ class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\core_userlist_provider,
     \core_privacy\local\request\plugin\provider {
-
     /**
      * Returns meta data about this system.
      *
      * @param   collection $collection The initialised collection to add items to.
      * @return  collection A listing of user data stored through this system.
      */
-    public static function get_metadata(collection $collection) : collection {
+    public static function get_metadata(collection $collection): collection {
         $collection->add_external_location_link('s3logs', [
             'userid' => 'privacy:metadata:tool_s3logs:userid',
             'relateduserid' => 'privacy:metadata:tool_s3logs:relateduserid',
@@ -56,7 +55,7 @@ class provider implements
      * @param   int         $userid     The user to search.
      * @return  contextlist $contextlist  The contextlist containing the list of contexts used in this plugin.
      */
-    public static function get_contexts_for_userid(int $userid) : contextlist {
+    public static function get_contexts_for_userid(int $userid): contextlist {
         return new contextlist();
     }
     /**
@@ -98,5 +97,4 @@ class provider implements
      */
     public static function delete_data_for_users(approved_userlist $userlist) {
     }
-
 }
