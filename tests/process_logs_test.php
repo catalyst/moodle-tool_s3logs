@@ -371,6 +371,108 @@ final class process_logs_test extends \advanced_testcase {
         }
     }
 
+    // Memory guard tests.
+
+    /**
+     * has_memory_exceeded returns true when current usage is already above the 80% threshold.
+     *
+     * @covers \tool_s3logs\task\process_logs::has_memory_exceeded
+     */
+    public function test_has_memory_exceeded_returns_true_above_threshold(): void {
+        $original = ini_get('memory_limit');
+        // Set the limit to 120% of current usage so the 80% threshold falls below current usage.
+        // Use try/finally to guarantee restoration even if an assertion fails.
+        $result = ini_set('memory_limit', (string)(int)ceil(memory_get_usage(true) * 1.2));
+        $this->assertNotFalse($result, 'ini_set(memory_limit) failed; fix the environment configuration.');
+        try {
+            $exceeded = process_logs::has_memory_exceeded();
+            $this->assertTrue($exceeded);
+        } finally {
+            ini_set('memory_limit', $original);
+        }
+    }
+
+    /**
+     * has_memory_exceeded returns false when current usage is well below the 80% threshold.
+     *
+     * @covers \tool_s3logs\task\process_logs::has_memory_exceeded
+     */
+    public function test_has_memory_exceeded_returns_false_below_threshold(): void {
+        $original = ini_get('memory_limit');
+        // Set the limit to 200% of current usage so current usage is well under the 80% threshold.
+        // Use try/finally to guarantee restoration even if an assertion fails.
+        $result = ini_set('memory_limit', (string)(int)ceil(memory_get_usage(true) * 2));
+        $this->assertNotFalse($result, 'ini_set(memory_limit) failed; fix the environment configuration.');
+        try {
+            $exceeded = process_logs::has_memory_exceeded();
+            $this->assertFalse($exceeded);
+        } finally {
+            ini_set('memory_limit', $original);
+        }
+    }
+
+    /**
+     * has_memory_exceeded returns false when the PHP memory limit is unlimited (-1).
+     *
+     * @covers \tool_s3logs\task\process_logs::has_memory_exceeded
+     */
+    public function test_has_memory_exceeded_returns_false_when_unlimited(): void {
+        $original = ini_get('memory_limit');
+        $result = ini_set('memory_limit', '-1');
+        $this->assertNotFalse($result, 'ini_set(memory_limit) failed; fix the environment configuration.');
+        // Use try/finally to guarantee restoration even if an assertion fails.
+        try {
+            $exceeded = process_logs::has_memory_exceeded();
+            $this->assertFalse($exceeded);
+        } finally {
+            ini_set('memory_limit', $original);
+        }
+    }
+
+    /**
+     * extract_records stops early and traces a warning when the memory threshold is exceeded.
+     *
+     * @covers \tool_s3logs\task\process_logs::extract_records
+     * @covers \tool_s3logs\task\process_logs::has_memory_exceeded
+     */
+    public function test_extract_records_stops_on_memory_exceeded(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $ctx = \context_system::instance();
+        $DB->insert_record('logstore_standard_log', (object)[
+            'edulevel'          => 0,
+            'contextid'         => $ctx->id,
+            'contextlevel'      => $ctx->contextlevel,
+            'contextinstanceid' => $ctx->instanceid,
+            'userid'            => 1,
+            'timecreated'       => time() - self::DEFAULT_INTERVAL - 1,
+            'courseid'          => 0,
+        ]);
+
+        // Do setup allocations first so the memory headroom is predictable when we lower the limit.
+        $config   = (object)['courseids' => '', 'coursefiltermode' => 'include'];
+        $tempdir  = make_temp_directory('s3logs_test');
+        $tempfile = tempnam($tempdir, 's3logs_test_');
+        $fp       = fopen($tempfile, 'w');
+
+        $original = ini_get('memory_limit');
+        // Set the limit to 120% of current real usage so the 80% threshold is immediately exceeded.
+        // Using memory_get_usage(true) matches what has_memory_exceeded() uses internally.
+        // Use try/finally to guarantee restoration even if an assertion fails.
+        $result = ini_set('memory_limit', (string)(int)ceil(memory_get_usage(true) * 1.2));
+        $this->assertNotFalse($result, 'ini_set(memory_limit) must succeed for this test to be valid');
+        try {
+            $this->expectOutputRegex('/Memory limit threshold.*reached/');
+            $ids = $this->invoke_private('extract_records', [time() + 3600, self::DEFAULT_INTERVAL, $fp, $config]);
+            fclose($fp);
+
+            $this->assertEmpty($ids);
+        } finally {
+            ini_set('memory_limit', $original);
+        }
+    }
+
     /**
      * An empty prefix produces a keyname starting with an underscore.
      *
