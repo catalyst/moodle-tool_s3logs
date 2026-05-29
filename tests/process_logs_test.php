@@ -406,4 +406,72 @@ final class process_logs_test extends \advanced_testcase {
         $this->assertStringStartsWith('_', $keyname);
         $this->assertStringEndsWith('.csv', $keyname);
     }
+
+    // vacuum_logstore tests.
+
+    /**
+     * vacuum_logstore does nothing and produces no output when the setting is disabled.
+     *
+     * @covers \tool_s3logs\task\process_logs::vacuum_logstore
+     */
+    public function test_vacuum_logstore_disabled_does_nothing(): void {
+        $this->resetAfterTest();
+        set_config('vacuum_after_delete', 0, 'tool_s3logs');
+        $config = get_config('tool_s3logs');
+
+        ob_start();
+        $this->invoke_private('vacuum_logstore', [$config]);
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('VACUUM', $output);
+    }
+
+    /**
+     * vacuum_logstore silently skips on non-PostgreSQL databases even when enabled.
+     *
+     * @covers \tool_s3logs\task\process_logs::vacuum_logstore
+     */
+    public function test_vacuum_logstore_skips_on_non_postgres(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        if ($DB->get_dbfamily() === 'postgres') {
+            $this->markTestSkipped('Non-PostgreSQL-specific test.');
+        }
+
+        set_config('vacuum_after_delete', 1, 'tool_s3logs');
+        $config = get_config('tool_s3logs');
+
+        ob_start();
+        $this->invoke_private('vacuum_logstore', [$config]);
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('VACUUM', $output);
+    }
+
+    /**
+     * vacuum_logstore issues VACUUM and traces progress on PostgreSQL when enabled.
+     *
+     * @covers \tool_s3logs\task\process_logs::vacuum_logstore
+     */
+    public function test_vacuum_logstore_runs_on_postgres(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        if ($DB->get_dbfamily() !== 'postgres') {
+            $this->markTestSkipped('PostgreSQL-specific test.');
+        }
+
+        set_config('vacuum_after_delete', 1, 'tool_s3logs');
+        $config = get_config('tool_s3logs');
+
+        ob_start();
+        $this->invoke_private('vacuum_logstore', [$config]);
+        $output = ob_get_clean();
+
+        // There is no way we can test that the vaccuum run since the test happens in a transaction and a vaccuum cannot run inside
+        // a transaction block. But we can at least check that the method attempted to run and handled the error gracefully.
+        $this->assertStringContainsString('Running VACUUM', $output);
+        $this->assertStringContainsString('ERROR:  VACUUM cannot run inside a transaction block', $output);
+    }
 }

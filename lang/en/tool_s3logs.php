@@ -70,4 +70,6 @@ $string['secretkey'] = 'Secret Key';
 $string['secretkey_desc'] = 'The AWS secret key used to make AWS API calls for S3';
 $string['usesdkcreds'] = 'Use the default credential provider chain to find AWS credentials';
 $string['usesdkcreds_desc'] = 'If Moodle is hosted inside AWS, the default credential chain can be used for access to s3 logs.';
+$string['vacuumafterdelete'] = 'Vacuum logstore table after archiving';
+$string['vacuumafterdelete_desc'] = 'Issue a <code>VACUUM</code> on the <code>logstore_standard_log</code> table after each archiving run that deletes records. This reclaims dead tuple space immediately rather than waiting for autovacuum, which can fall behind during aggressive archiving campaigns. This setting only has effect on PostgreSQL and is silently ignored on other database families.';
 $string['writefailure'] = 'Could not write object to the S3 storage. {$a}';

@@ -176,6 +176,35 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
+     * Issues a VACUUM on logstore_standard_log to reclaim dead tuple space.
+     *
+     * Only executed on PostgreSQL and only when the vacuum_after_delete setting
+     * is enabled. Called after a successful batch delete to prevent autovacuum
+     * from falling behind during aggressive archiving campaigns.
+     *
+     * @param object $config Plugin config.
+     */
+    private function vacuum_logstore($config): void {
+        global $DB;
+
+        if (empty($config->vacuum_after_delete)) {
+            return;
+        }
+
+        if ($DB->get_dbfamily() !== 'postgres') {
+            return;
+        }
+
+        try {
+            mtrace('Running VACUUM on logstore_standard_log...');
+            $DB->execute('VACUUM {logstore_standard_log}');
+            mtrace('VACUUM complete.');
+        } catch (\dml_exception $e) {
+            mtrace('WARNING: VACUUM on logstore_standard_log failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * {@inheritDoc}
      * @see \core\task\task_base::execute()
      */
@@ -227,6 +256,7 @@ class process_logs extends \core\task\scheduled_task {
                     // Delete the processed records from the log table.
                     mtrace('Deleting ' . $numrecords . ' records from DB...');
                     $this->delete_records($recordids);
+                    $this->vacuum_logstore($config);
                 }
             } else {
                 mtrace('No records found to process, finishing...');
