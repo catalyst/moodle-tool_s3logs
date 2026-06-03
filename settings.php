@@ -112,6 +112,13 @@ if ($hassiteconfig) {
             ]
         ));
 
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_s3logs/vacuum_after_delete',
+            get_string('vacuumafterdelete', 'tool_s3logs'),
+            get_string('vacuumafterdelete_desc', 'tool_s3logs'),
+            0
+        ));
+
         // AWS Bucket and S3 settings.
         $settings->add(new admin_setting_heading(
             'tool_s3logs_awss3',
