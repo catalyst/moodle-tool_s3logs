@@ -81,9 +81,13 @@ class s3_client {
         if (!$this->is_configured()) {
             $this->client = null;
         } else {
+            // Use a short connection timeout so status checks fail fast without affecting long-running uploads.
             $settings = [
                 'region' => $this->config->s3region,
                 'version' => 'latest',
+                'http' => [
+                    'connect_timeout' => 5,
+                ],
             ];
 
             if (!$this->config->usesdkcreds) {

@@ -51,13 +51,27 @@ class status extends check {
         $client = new s3_client();
 
         // Connection check.
-        if (!$client->test_connection()->success) {
-            return new result(result::ERROR, get_string('connectionfailure', 'tool_s3logs', ''));
+        $connection = $client->test_connection();
+        if (!$connection->success) {
+            $details = '';
+            if (!empty($connection->details)) {
+                $details = s($connection->details);
+            }
+            return new result(result::ERROR, trim(get_string('connectionfailure', 'tool_s3logs', '')), $details);
         }
 
         // Permission check.
-        if (!$client->test_permissions()->success) {
-            return new result(result::ERROR, get_string('writefailure', 'tool_s3logs', ''));
+        $permissions = $client->test_permissions();
+        if (!$permissions->success) {
+            // Aggregate permission messages into details.
+            $detailmsgs = '';
+            if (!empty($permissions->messages) && is_array($permissions->messages)) {
+                foreach (array_keys($permissions->messages) as $msg) {
+                    $detailmsgs .= $msg . "\n";
+                }
+            }
+            $details = $detailmsgs ? s($detailmsgs) : '';
+            return new result(result::ERROR, trim(get_string('writefailure', 'tool_s3logs', '')), $details);
         }
 
         // All configured, but disabled.

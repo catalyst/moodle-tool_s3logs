@@ -31,9 +31,7 @@ use tool_s3logs\local\client\s3_client;
  * @return array
  */
 function tool_s3logs_status_checks(): array {
-    $client = new s3_client();
-
-    if ($client->is_configured()) {
+    if (!empty(get_config('tool_s3logs', 'enable'))) {
         return [
             new tool_s3logs\check\status(),
         ];
