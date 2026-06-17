@@ -34,8 +34,6 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('tool_s3logs_settings', '', get_string('pluginnamedesc', 'tool_s3logs')));
 
     if (! during_initial_install()) {
-        // Defer expensive connection checks to the async admin_setting_check helper so page rendering is not blocked.
-        $clientstatus = '';
 
         // General Settings.
         $settings->add(new admin_setting_heading(
@@ -110,7 +108,7 @@ if ($hassiteconfig) {
         $settings->add(new admin_setting_heading(
             'tool_s3logs_awss3',
             get_string('awss3settings', 'tool_s3logs'),
-            $clientstatus
+            '' 
         ));
 
         // Async check for S3 connection and permissions (uses core check API via AJAX).
