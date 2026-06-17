@@ -57,7 +57,7 @@ class status extends check {
             if (!empty($connection->details)) {
                 $details = s($connection->details);
             }
-            return new result(result::ERROR, get_string('connectionfailure', 'tool_s3logs', ''), $details);
+            return new result(result::ERROR, trim(get_string('connectionfailure', 'tool_s3logs', '')), $details);
         }
 
         // Permission check.
