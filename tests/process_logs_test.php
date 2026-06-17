@@ -407,7 +407,7 @@ final class process_logs_test extends \advanced_testcase {
         $this->assertStringEndsWith('.csv', $keyname);
     }
 
-    // vacuum_logstore tests.
+    // Vacuum_logstore tests.
 
     /**
      * vacuum_logstore does nothing and produces no output when the setting is disabled.

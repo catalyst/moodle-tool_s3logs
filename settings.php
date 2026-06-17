@@ -34,7 +34,6 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('tool_s3logs_settings', '', get_string('pluginnamedesc', 'tool_s3logs')));
 
     if (! during_initial_install()) {
-
         // General Settings.
         $settings->add(new admin_setting_heading(
             'tool_s3logs_general',
@@ -108,7 +107,7 @@ if ($hassiteconfig) {
         $settings->add(new admin_setting_heading(
             'tool_s3logs_awss3',
             get_string('awss3settings', 'tool_s3logs'),
-            '' 
+            ''
         ));
 
         // Async check for S3 connection and permissions (uses core check API via AJAX).
