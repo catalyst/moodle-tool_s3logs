@@ -81,9 +81,17 @@ class s3_client {
         if (!$this->is_configured()) {
             $this->client = null;
         } else {
+            // Use a short HTTP timeout to keep connection attempts fast (connect + total timeout).
+            // Hardcoded to 5 seconds for both connect and overall timeout as requested.
             $settings = [
                 'region' => $this->config->s3region,
                 'version' => 'latest',
+                // Disable retries so the client makes a single attempt (fast failure).
+                'retries' => 0,
+                'http' => [
+                    'connect_timeout' => 5,
+                    'timeout' => 5,
+                ],
             ];
 
             if (!$this->config->usesdkcreds) {
