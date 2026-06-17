@@ -37,18 +37,9 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('tool_s3logs_settings', '', get_string('pluginnamedesc', 'tool_s3logs')));
 
     if (! during_initial_install()) {
+        // Defer expensive connection checks to the async admin_setting_check helper so page rendering is not blocked.
         $clientstatus = '';
         $sdkstatus = '';
-
-        // Check client actual status only when we are on the settings page.
-        if ($PAGE->has_set_url()) {
-            $settingsurl = new moodle_url('/admin/settings.php');
-            if ($settingsurl->compare($PAGE->url, URL_MATCH_BASE) && $PAGE->url->get_param('section') == 'tool_s3logs') {
-                $client = new s3_client();
-                $clientstatus = $client->get_client_status_message();
-                $sdkstatus = $client->get_sdk_credentials_status();
-            }
-        }
 
         // General Settings.
         $settings->add(new admin_setting_heading(
@@ -126,10 +117,17 @@ if ($hassiteconfig) {
             $clientstatus
         ));
 
+        // Async check for S3 connection and permissions (uses core check API via AJAX).
+        $settings->add(new admin_setting_check(
+            'tool_s3logs/check_status',
+            new \tool_s3logs\check\status(),
+            true
+        ));
+
         $settings->add(new admin_setting_configcheckbox(
             'tool_s3logs/usesdkcreds',
             get_string('usesdkcreds', 'tool_s3logs'),
-            get_string('usesdkcreds_desc', 'tool_s3logs') . $sdkstatus,
+            get_string('usesdkcreds_desc', 'tool_s3logs'),
             0
         ));
 
