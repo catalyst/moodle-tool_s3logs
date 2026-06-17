@@ -66,7 +66,7 @@ class status extends check {
             // Aggregate permission messages into details.
             $detailmsgs = '';
             if (!empty($permissions->messages) && is_array($permissions->messages)) {
-                foreach ($permissions->messages as $msg => $type) {
+                foreach (array_keys($permissions->messages) as $msg) {
                     $detailmsgs .= $msg . "\n";
                 }
             }
