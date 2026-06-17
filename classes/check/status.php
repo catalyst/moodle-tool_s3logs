@@ -71,7 +71,7 @@ class status extends check {
                 }
             }
             $details = $detailmsgs ? s($detailmsgs) : '';
-            return new result(result::ERROR, get_string('writefailure', 'tool_s3logs', ''), $details);
+            return new result(result::ERROR, trim(get_string('writefailure', 'tool_s3logs', '')), $details);
         }
 
         // All configured, but disabled.
