@@ -25,10 +25,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-use tool_s3logs\local\client\s3_client;
 use tool_s3logs\admin_settings_aws_region;
-
-global $PAGE;
 
 if ($hassiteconfig) {
     $settings = new admin_settingpage('tool_s3logs', get_string('pluginname', 'tool_s3logs'));
@@ -39,7 +36,6 @@ if ($hassiteconfig) {
     if (! during_initial_install()) {
         // Defer expensive connection checks to the async admin_setting_check helper so page rendering is not blocked.
         $clientstatus = '';
-        $sdkstatus = '';
 
         // General Settings.
         $settings->add(new admin_setting_heading(
