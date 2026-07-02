@@ -27,6 +27,9 @@ use tool_s3logs\local\client\s3_client;
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class process_logs extends \core\task\scheduled_task {
+    /** @var float The memory limit threshold as a fraction of the configured memory limit. */
+    const MEMORY_LIMIT_THRESHOLD = 0.8; // Stop processing if we have used 80% of the memory limit.
+
     /**
      * {@inheritDoc}
      * @see \core\task\scheduled_task::get_name()
@@ -103,6 +106,28 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
+     * Determines whether the memory usage for self::extract_records() has exceeded the defined threshold.
+     *
+     * @return bool Returns true when memory usage reaches self::MEMORY_LIMIT_THRESHOLD of memory limit; otherwise false.
+     */
+    public static function has_memory_exceeded(): bool {
+        $memlimit = ini_get('memory_limit');
+
+        if ($memlimit === false || $memlimit === '-1' || $memlimit === '') {
+            // No memory limit.
+            return false;
+        }
+
+        $reallimit = get_real_size($memlimit);
+        if ($reallimit <= 0) {
+            // Invalid or unusable configured limit.
+            return false;
+        }
+
+        return memory_get_usage(true) >= ($reallimit * self::MEMORY_LIMIT_THRESHOLD);
+    }
+
+    /**
      * Extract the log records from the db and write
      * to a temporary file.
      *
@@ -132,6 +157,12 @@ class process_logs extends \core\task\scheduled_task {
         // Get 1000 rows of data from the log table order by oldest first.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
         while (time() <= $stopat) {
+            if (self::has_memory_exceeded()) {
+                $memlimitthr = round(self::MEMORY_LIMIT_THRESHOLD * 100, 0);
+                mtrace("Memory limit threshold of {$memlimitthr}% reached, stopping processing to avoid an out-of-memory error");
+                break;
+            }
+
             $results = $DB->get_records_select(
                 'logstore_standard_log',
                 'timecreated <= ?' . $coursefiltersql,
