@@ -118,13 +118,6 @@ if ($hassiteconfig) {
             ''
         ));
 
-        $settings->add(new admin_setting_configcheckbox(
-            'tool_s3logs/usesdkcreds',
-            get_string('usesdkcreds', 'tool_s3logs'),
-            get_string('usesdkcreds_desc', 'tool_s3logs'),
-            0
-        ));
-
         $settings->add(new admin_setting_configtext(
             'tool_s3logs/bucket',
             get_string('bucket', 'tool_s3logs'),
@@ -132,6 +125,20 @@ if ($hassiteconfig) {
             '',
             PARAM_TEXT,
             60
+        ));
+
+        $settings->add(new admin_settings_aws_region(
+            'tool_s3logs/s3region',
+            get_string('s3region', 'tool_s3logs'),
+            get_string('s3region_desc', 'tool_s3logs'),
+            'ap-southeast-2'
+        ));
+
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_s3logs/usesdkcreds',
+            get_string('usesdkcreds', 'tool_s3logs'),
+            get_string('usesdkcreds_desc', 'tool_s3logs'),
+            0
         ));
 
         $settings->add(new admin_setting_configtext(
@@ -147,13 +154,6 @@ if ($hassiteconfig) {
             get_string('secretkey', 'tool_s3logs'),
             get_string('secretkey_desc', 'tool_s3logs'),
             ''
-        ));
-
-        $settings->add(new admin_settings_aws_region(
-            'tool_s3logs/s3region',
-            get_string('s3region', 'tool_s3logs'),
-            get_string('s3region_desc', 'tool_s3logs'),
-            'ap-southeast-2'
         ));
     }
 }
