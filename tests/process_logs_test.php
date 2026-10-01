@@ -328,7 +328,7 @@ final class process_logs_test extends \advanced_testcase {
     // Prefix / keyname tests.
 
     /**
-     * The S3 keyname is {prefix}_{date}_{first}_{last}.csv, where {date} is the
+     * The S3 keyname is {prefix}_{date}_{first}_{last}.csv.gz, where {date} is the
      * earliest record's timecreated, not the time the task ran.
      *
      * @covers \tool_s3logs\task\process_logs::build_keyname
@@ -340,7 +340,7 @@ final class process_logs_test extends \advanced_testcase {
             $keyname = $this->invoke_private('build_keyname', [$prefix, $earliest, 10, 20]);
 
             $this->assertSame(
-                "{$prefix}_2024-03-15_10_20.csv",
+                "{$prefix}_2024-03-15_10_20.csv.gz",
                 $keyname,
                 "Keyname '$keyname' does not match expected format for prefix '$prefix'"
             );
@@ -356,9 +356,9 @@ final class process_logs_test extends \advanced_testcase {
         $earliest = strtotime('2024-03-15 10:00:00');
         $keyname = $this->invoke_private('build_keyname', ['', $earliest, 10, 20]);
 
-        $this->assertSame('2024-03-15_10_20.csv', $keyname);
+        $this->assertSame('2024-03-15_10_20.csv.gz', $keyname);
         $this->assertStringStartsNotWith('_', $keyname);
-        $this->assertStringEndsWith('.csv', $keyname);
+        $this->assertStringEndsWith('.csv.gz', $keyname);
     }
 
     // Vacuum_logstore tests.

@@ -43,12 +43,17 @@ class process_logs extends \core\task\scheduled_task {
      * Returns the name inlcuding path of the file
      * and a file pointer.
      *
+     * The file is written through the zlib stream wrapper, so the CSV is gzipped
+     * as it is generated. Log records are highly repetitive and typically
+     * compress by an order of magnitude, which cuts the temp disk space, the
+     * upload time and the ongoing S3 storage cost by about the same factor.
+     *
      * @return array File name and file pointer.
      */
     private function get_temp_file() {
         $tempdir = make_temp_directory('s3logs_upload');
         $tempfile = tempnam($tempdir, 's3logs_');
-        $fp = fopen($tempfile, 'w');
+        $fp = fopen('compress.zlib://' . $tempfile, 'w');
 
         return  [$tempfile, $fp];
     }
@@ -257,11 +262,12 @@ class process_logs extends \core\task\scheduled_task {
     /**
      * Build the S3 object key for an archived batch of records.
      *
-     * Normally {prefix}_{date}_{first}_{last}.csv, but the leading underscore is
-     * omitted when no prefix is configured, e.g. {date}_{first}_{last}.csv. The date
+     * Normally {prefix}_{date}_{first}_{last}.csv.gz, but the leading underscore is
+     * omitted when no prefix is configured, e.g. {date}_{first}_{last}.csv.gz. The date
      * is in ISO 8601 date format (Y-m-d), and is the timecreated of the earliest
      * (oldest) record in the batch, not the time the task ran. The time-of-day
      * component is omitted (events are batched by day, and it avoids colons in the key).
+     * The file itself is gzipped (see get_temp_file()), hence the .gz suffix.
      *
      * @param string $prefix Configured S3 key prefix, may be empty.
      * @param int $earliesttimecreated Timecreated of the earliest (oldest) record in the batch.
@@ -275,7 +281,7 @@ class process_logs extends \core\task\scheduled_task {
             fn($part) => $part !== ''
         );
 
-        return implode('_', $parts) . '.csv';
+        return implode('_', $parts) . '.csv.gz';
     }
 
     /**
@@ -385,7 +391,11 @@ class process_logs extends \core\task\scheduled_task {
                 ]));
 
                 $s3client = new s3_client();
-                $s3url = $s3client->upload_file($tempfile, $keyname);
+                try {
+                    $s3url = $s3client->upload_file($tempfile, $keyname, 'application/gzip');
+                } finally {
+                    unlink($tempfile);
+                }
 
                 if (!$s3url) {
                     throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
