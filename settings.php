@@ -40,6 +40,14 @@ if ($hassiteconfig) {
             get_string('generalsettings', 'tool_s3logs'),
             ''
         ));
+
+        // Async check for S3 connection, permissions, and task health (uses core check API via AJAX).
+        $settings->add(new admin_setting_check(
+            'tool_s3logs/check_status',
+            new \tool_s3logs\check\status(),
+            true
+        ));
+
         $settings->add(new admin_setting_configcheckbox(
             'tool_s3logs/enable',
             get_string('enable', 'tool_s3logs'),
@@ -108,13 +116,6 @@ if ($hassiteconfig) {
             'tool_s3logs_awss3',
             get_string('awss3settings', 'tool_s3logs'),
             ''
-        ));
-
-        // Async check for S3 connection and permissions (uses core check API via AJAX).
-        $settings->add(new admin_setting_check(
-            'tool_s3logs/check_status',
-            new \tool_s3logs\check\status(),
-            true
         ));
 
         $settings->add(new admin_setting_configcheckbox(
