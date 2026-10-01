@@ -89,39 +89,43 @@ class process_logs extends \core\task\scheduled_task {
         global $DB;
 
         $threshold = time() - $interval;
-        $recordids = array();
-        $start = 0;
+        $recordids = [];
+        $lastid = 0;
         $limit = 1000;
-        $step = 1000;
 
         mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
-        // Get 1000 rows of data from the log table order by oldest first.
+        // Get 1000 rows of data from the log table, ordered by ID so that each query
+        // can start where the previous one finished. Using the ID as a cursor keeps the
+        // cost of every query the same. An increasing OFFSET instead makes the database
+        // re-read and discard all of the records already processed, so the task gets
+        // progressively slower the longer it runs.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
         while (time() <= $stopat) {
-            $results = $DB->get_records_select(
-                    'logstore_standard_log',
-                    'timecreated <= ?',
-                    array($threshold),
-                    'timecreated ASC',
-                    '*',
-                    $start,
-                    $limit
-                    );
-
-            if (empty($results)) {
-                mtrace('Records processing finished before time limit reached');
-                break; // Stop trying to get records when we run out.
-            }
-
-            // Increment record start position for next iteration.
-            $start += $step;
+            $records = $DB->get_recordset_select(
+                'logstore_standard_log',
+                'id > :lastid AND timecreated <= :threshold',
+                ['lastid' => $lastid, 'threshold' => $threshold],
+                'id ASC',
+                '*',
+                0,
+                $limit
+            );
 
             // We do not want to load all results into memory,
             // we want to write them to a file as we go.
-            foreach ($results as $key => $value) {
-                $recordids[] = $key;
-                fputcsv($fp, (array)$value);
+            $count = 0;
+            foreach ($records as $record) {
+                $recordids[] = $record->id;
+                $lastid = $record->id;
+                fputcsv($fp, (array)$record);
+                $count++;
+            }
+            $records->close();
+
+            if ($count < $limit) {
+                mtrace('Records processing finished before time limit reached');
+                break; // Stop trying to get records when we run out.
             }
         }
 
