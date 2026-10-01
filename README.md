@@ -7,7 +7,7 @@ This plugin will take entries from teh Moodle standard log store table and expor
 
 There is no internal cleanup process in Moodle to manage the size of the standard log store table. This table will get continuosly larger overtime. On busy Moodle sites this means that the table can easily be over 100GB on disk. As the standard log store table grows, both in number of records and size on disk Moodle performance can be effected.
 
-This plugin will extract entries from the standard log store table that are older than a user configured date. These extracted entries are then uploaded to AWS S3 as a csv file, and finally the original records are deleted from the Moodle database. Doing this keeps the Moodle databse size down while preserving data that can be leverage for analytics and other functions.
+This plugin will extract entries from the standard log store table that are older than a user configured date. These extracted entries are then uploaded to AWS S3 as a gzipped csv file, and finally the original records are deleted from the Moodle database. Doing this keeps the Moodle databse size down while preserving data that can be leverage for analytics and other functions.
 
 The records are archived in chunks, each of which is written to its own file and uploaded, and whose records are deleted from the log table, before the next chunk is read. The number of records per file is configurable.
 

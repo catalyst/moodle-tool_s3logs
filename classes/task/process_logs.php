@@ -51,12 +51,17 @@ class process_logs extends \core\task\scheduled_task {
      * Returns the name inlcuding path of the file
      * and a file pointer.
      *
+     * The file is written through the zlib stream wrapper, so the CSV is gzipped
+     * as it is generated. Log records are highly repetitive and typically
+     * compress by an order of magnitude, which cuts the temp disk space, the
+     * upload time and the ongoing S3 storage cost by about the same factor.
+     *
      * @return array File name and file pointer.
      */
     private function get_temp_file() {
         $tempdir = make_temp_directory('s3logs_upload');
         $tempfile = tempnam($tempdir, 's3logs_');
-        $fp = fopen($tempfile, 'w');
+        $fp = fopen('compress.zlib://' . $tempfile, 'w');
 
         return [$tempfile, $fp];
     }
@@ -221,12 +226,12 @@ class process_logs extends \core\task\scheduled_task {
             $firstrecord = reset($recordids);
             $lastrecord = end($recordids);
 
-            $keyname = $config->prefix . '_' . date('YmdHis') . '_' . $firstrecord . '_' . $lastrecord . '.csv';
+            $keyname = $config->prefix . '_' . date('YmdHis') . '_' . $firstrecord . '_' . $lastrecord . '.csv.gz';
             mtrace('Extracting ' . $numrecords . ' records from DB took: ' . $elapsedtime . ' seconds...');
             mtrace('Uploading ' . $numrecords . ' records to S3...');
 
             try {
-                $s3url = $s3client->upload_file($tempfile, $keyname);
+                $s3url = $s3client->upload_file($tempfile, $keyname, 'application/gzip');
             } finally {
                 unlink($tempfile);
             }
