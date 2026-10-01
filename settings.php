@@ -155,5 +155,9 @@ if ($hassiteconfig) {
             get_string('secretkey_desc', 'tool_s3logs'),
             ''
         ));
+
+        // Hide the explicit credential fields when using the SDK's default credential chain.
+        $settings->hide_if('tool_s3logs/keyid', 'tool_s3logs/usesdkcreds', 'checked');
+        $settings->hide_if('tool_s3logs/secretkey', 'tool_s3logs/usesdkcreds', 'checked');
     }
 }
