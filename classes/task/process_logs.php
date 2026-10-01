@@ -222,17 +222,19 @@ class process_logs extends \core\task\scheduled_task {
      *
      * Normally {prefix}_{date}_{first}_{last}.csv, but the leading underscore is
      * omitted when no prefix is configured, e.g. {date}_{first}_{last}.csv. The date
-     * is in ISO 8601 date format (Y-m-d). The task is expected to run at most once a
-     * day, so the time-of-day component is omitted (it also avoids colons in the key).
+     * is in ISO 8601 date format (Y-m-d), and is the timecreated of the earliest
+     * (oldest) record in the batch, not the time the task ran. The time-of-day
+     * component is omitted (events are batched by day, and it avoids colons in the key).
      *
      * @param string $prefix Configured S3 key prefix, may be empty.
+     * @param int $earliesttimecreated Timecreated of the earliest (oldest) record in the batch.
      * @param int $firstrecord ID of the first (oldest) record in the batch.
      * @param int $lastrecord ID of the last (newest) record in the batch.
      * @return string
      */
-    private function build_keyname(string $prefix, int $firstrecord, int $lastrecord): string {
+    private function build_keyname(string $prefix, int $earliesttimecreated, int $firstrecord, int $lastrecord): string {
         $parts = array_filter(
-            [$prefix, date('Y-m-d'), $firstrecord, $lastrecord],
+            [$prefix, date('Y-m-d', $earliesttimecreated), $firstrecord, $lastrecord],
             fn($part) => $part !== ''
         );
 
@@ -337,7 +339,7 @@ class process_logs extends \core\task\scheduled_task {
                 $firstrecord = min($recordids);
                 $lastrecord = max($recordids);
 
-                $keyname = $this->build_keyname($config->prefix, $firstrecord, $lastrecord);
+                $keyname = $this->build_keyname($config->prefix, $rangestart, $firstrecord, $lastrecord);
                 $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
                     'count' => $numrecords,
                     'elapsed' => $elapsedtime,
