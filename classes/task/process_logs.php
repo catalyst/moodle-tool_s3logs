@@ -105,17 +105,25 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
-     * Find the timecreated of the oldest log record eligible for archiving.
+     * Find the bounds of the log records eligible for archiving, used to estimate progress.
      *
-     * This is a cheap, indexed lookup (ORDER BY timecreated ASC LIMIT 1) used
-     * as the starting point of a time-based progress estimate, avoiding the
+     * Records are extracted in ID order (see extract_records()), so the ID of the record
+     * processed so far is what actually advances monotonically as the task runs - not its
+     * timecreated, which only approximately follows ID order (backdated/imported events,
+     * clock skew, etc. can break that assumption, causing erratic/stalling progress if we
+     * based percentages on timecreated instead). Using the position within the eligible ID
+     * range instead gives a progress percentage that is guaranteed to increase smoothly.
+     *
+     * Both lookups are cheap, indexed ORDER BY timecreated ... LIMIT 1 queries, avoiding the
      * cost of a full COUNT() over the (potentially huge) logstore table.
      *
      * @param int $interval Interval of months in seconds.
      * @param object $config Plugin config.
-     * @return ?int Timecreated of the oldest eligible record, or null if there are none.
+     * @return ?object Object with starttime (timecreated of the oldest eligible record, used
+     *      for reporting/keynames), startid and endid (ID bounds of the eligible records, used
+     *      for progress reporting), or null if there are no eligible records.
      */
-    private function get_oldest_eligible_time($interval, $config): ?int {
+    private function get_eligible_record_bounds($interval, $config): ?object {
         global $DB;
 
         $threshold = time() - $interval;
@@ -135,7 +143,24 @@ class process_logs extends \core\task\scheduled_task {
             return null;
         }
 
-        return reset($oldest)->timecreated;
+        $newest = $DB->get_records_select(
+            'logstore_standard_log',
+            'timecreated <= ?' . $coursefiltersql,
+            array_merge([$threshold], $coursefilterparams),
+            'timecreated DESC',
+            'id',
+            0,
+            1
+        );
+
+        $oldestrecord = reset($oldest);
+        $newestrecord = reset($newest);
+
+        return (object)[
+            'starttime' => (int)$oldestrecord->timecreated,
+            'startid' => (int)$oldestrecord->id,
+            'endid' => (int)$newestrecord->id,
+        ];
     }
 
     /**
@@ -146,71 +171,83 @@ class process_logs extends \core\task\scheduled_task {
      * we want to get all records that are older than this
      * number of months.
      *
-     * Progress is reported based on the timecreated of the records being
-     * processed, relative to the full time range being archived. This avoids
-     * needing an expensive record count to know how much work there is to do.
+     * Records are read in ID order, using the ID of the last record read as the
+     * cursor for the next query.
+     *
+     * Progress is reported based on the position of the last processed record's ID within
+     * the full range of eligible IDs. Records are extracted in ID order, so this position
+     * is guaranteed to increase smoothly as the task runs, unlike the records' timecreated
+     * (which only approximately follows ID order, and can jump around or stall the progress
+     * bar if backdated/imported events break that assumption). This also avoids needing an
+     * expensive record count to know how much work there is to do.
      *
      * @param int $stopat The time to stop process, if there are still records.
      * @param int $interval Interval of months in seconds.
      * @param resource $fp File pointer to temp file to write to.
      * @param object $config Plugin config.
-     * @param ?int $rangestart Timecreated of the oldest eligible record, used to report progress. Null to skip reporting.
-     * @param ?int $rangeend Timecreated of the newest eligible record (the archive threshold).
+     * @param ?int $startid ID of the oldest eligible record, used to report progress. Null to skip reporting.
+     * @param ?int $endid ID of the newest eligible record (at the archive threshold).
      * @return array $recordids the ID's of the log entries written to the file.
      */
-    private function extract_records($stopat, $interval, $fp, $config, ?int $rangestart = null, ?int $rangeend = null) {
+    private function extract_records($stopat, $interval, $fp, $config, ?int $startid = null, ?int $endid = null) {
         global $DB;
 
         $threshold = time() - $interval;
         $recordids = [];
-        $start = 0;
+        $lastid = 0;
         $limit = 1000;
-        $step = 1000;
-        $reportprogress = $this->progress !== null && $rangestart !== null && $rangeend !== null;
-        $timerange = $reportprogress ? max($rangeend - $rangestart, 1) : 0;
+        $reportprogress = $this->progress !== null && $startid !== null && $endid !== null;
+        $idrange = $reportprogress ? max($endid - $startid, 1) : 0;
 
         mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
         [$coursefiltersql, $coursefilterparams] = $this->get_course_filter_sql($config);
 
-        // Get 1000 rows of data from the log table order by oldest first.
+        // Get 1000 rows of data from the log table, ordered by ID so that each query can
+        // start where the previous one finished. Using the ID as a cursor keeps the cost of
+        // every query the same. An increasing OFFSET instead makes the database re-read and
+        // discard all of the records already processed, so the task gets progressively
+        // slower the longer it runs - and because nothing is deleted until the end of the
+        // run, the rows being skipped are still there to be skipped again.
         // Keep getting records 1000 at a time until we run out of records or max execution time is reached.
         while (time() <= $stopat) {
-            $results = $DB->get_records_select(
+            $records = $DB->get_recordset_select(
                 'logstore_standard_log',
-                'timecreated <= ?' . $coursefiltersql,
-                array_merge([$threshold], $coursefilterparams),
-                'timecreated ASC',
+                'id > ? AND timecreated <= ?' . $coursefiltersql,
+                array_merge([$lastid, $threshold], $coursefilterparams),
+                'id ASC',
                 '*',
-                $start,
+                0,
                 $limit
             );
 
-            if (empty($results)) {
-                break; // Stop trying to get records when we run out.
-            }
-
-            // Increment record start position for next iteration.
-            $start += $step;
-
             // We do not want to load all results into memory,
             // we want to write them to a file as we go.
+            $count = 0;
             $lasttimecreated = null;
-            foreach ($results as $key => $value) {
-                $recordids[] = $key;
-                fputcsv($fp, (array)$value);
-                $lasttimecreated = $value->timecreated;
+            foreach ($records as $record) {
+                $recordids[] = $record->id;
+                $lastid = $record->id;
+                fputcsv($fp, (array)$record);
+                $lasttimecreated = $record->timecreated;
+                $count++;
             }
+            $records->close();
 
-            // Results are ordered oldest first, so the last record processed in this batch
-            // tells us how far through the time range we have got. Extraction is capped at 90%,
-            // reserving the remainder for the upload/delete stages that follow it.
+            // The ID of the last record processed tells us how far through the eligible ID
+            // range we have got, which (since we extract in ID order) increases smoothly and
+            // monotonically as the task runs. Extraction is capped at 90%, reserving the
+            // remainder for the upload/delete stages that follow it.
             if ($reportprogress && $lasttimecreated !== null) {
-                $percent = min(90, max(0, (($lasttimecreated - $rangestart) / $timerange) * 90));
+                $percent = min(90, max(0, (($lastid - $startid) / $idrange) * 90));
                 $this->progress->update_full(
                     $percent,
                     get_string('progress_extracted', 'tool_s3logs', date('Y-m-d H:i:s', $lasttimecreated))
                 );
+            }
+
+            if ($count < $limit) {
+                break; // Stop trying to get records when we run out.
             }
         }
 
@@ -305,14 +342,16 @@ class process_logs extends \core\task\scheduled_task {
             $this->start_stored_progress();
             $this->progress->update_full(0, get_string('progress_finding', 'tool_s3logs'));
 
-            // Find the oldest eligible record's timecreated, so we can report progress based on
-            // the time range being archived, rather than an expensive COUNT() of matching records.
-            $rangestart = $this->get_oldest_eligible_time($maxage, $config);
+            // Find the bounds of the eligible records (by ID, for progress reporting, and by
+            // timecreated, for the keyname/status messages), rather than running an expensive
+            // COUNT() of matching records.
+            $bounds = $this->get_eligible_record_bounds($maxage, $config);
 
-            if ($rangestart === null) {
+            if ($bounds === null) {
                 $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
                 return;
             }
+            $rangestart = $bounds->starttime;
 
             $progressrange = (object)[
                 'start' => date('Y-m-d H:i:s', $rangestart),
@@ -329,7 +368,7 @@ class process_logs extends \core\task\scheduled_task {
 
             // Extract records from DB and add them to the temp file.
             $starttime = time();
-            $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $rangestart, $rangeend);
+            $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $bounds->startid, $bounds->endid);
             fclose($fp); // Close file now that we have it.
             $elapsedtime = time() - $starttime;
 
