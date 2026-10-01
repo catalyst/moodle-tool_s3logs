@@ -327,8 +327,11 @@ final class process_logs_test extends \advanced_testcase {
 
     // Prefix / keyname tests.
 
+    /** Regex matching the ISO 8601 date portion of a keyname, e.g. 2026-10-01. */
+    private const ISO_DATE_PATTERN = '\d{4}-\d{2}-\d{2}';
+
     /**
-     * The S3 keyname is {prefix}_{YmdHis}_{first}_{last}.csv.
+     * The S3 keyname is {prefix}_{date}_{first}_{last}.csv.
      * Verify different prefixes produce correctly formatted keynames.
      *
      * @covers \tool_s3logs\task\process_logs::build_keyname
@@ -338,7 +341,7 @@ final class process_logs_test extends \advanced_testcase {
             $keyname = $this->invoke_private('build_keyname', [$prefix, 10, 20]);
 
             $this->assertMatchesRegularExpression(
-                '/^' . preg_quote($prefix, '/') . '_\d{14}_10_20\.csv$/',
+                '/^' . preg_quote($prefix, '/') . '_' . self::ISO_DATE_PATTERN . '_10_20\.csv$/',
                 $keyname,
                 "Keyname '$keyname' does not match expected format for prefix '$prefix'"
             );
@@ -353,7 +356,7 @@ final class process_logs_test extends \advanced_testcase {
     public function test_keyname_with_empty_prefix(): void {
         $keyname = $this->invoke_private('build_keyname', ['', 10, 20]);
 
-        $this->assertMatchesRegularExpression('/^\d{14}_10_20\.csv$/', $keyname);
+        $this->assertMatchesRegularExpression('/^' . self::ISO_DATE_PATTERN . '_10_20\.csv$/', $keyname);
         $this->assertStringStartsNotWith('_', $keyname);
         $this->assertStringEndsWith('.csv', $keyname);
     }

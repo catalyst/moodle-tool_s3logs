@@ -220,8 +220,10 @@ class process_logs extends \core\task\scheduled_task {
     /**
      * Build the S3 object key for an archived batch of records.
      *
-     * Normally {prefix}_{YmdHis}_{first}_{last}.csv, but the leading underscore is
-     * omitted when no prefix is configured, e.g. {YmdHis}_{first}_{last}.csv.
+     * Normally {prefix}_{date}_{first}_{last}.csv, but the leading underscore is
+     * omitted when no prefix is configured, e.g. {date}_{first}_{last}.csv. The date
+     * is in ISO 8601 date format (Y-m-d). The task is expected to run at most once a
+     * day, so the time-of-day component is omitted (it also avoids colons in the key).
      *
      * @param string $prefix Configured S3 key prefix, may be empty.
      * @param int $firstrecord ID of the first (oldest) record in the batch.
@@ -230,7 +232,7 @@ class process_logs extends \core\task\scheduled_task {
      */
     private function build_keyname(string $prefix, int $firstrecord, int $lastrecord): string {
         $parts = array_filter(
-            [$prefix, date('YmdHis'), $firstrecord, $lastrecord],
+            [$prefix, date('Y-m-d'), $firstrecord, $lastrecord],
             fn($part) => $part !== ''
         );
 
