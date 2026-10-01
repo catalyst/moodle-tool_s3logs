@@ -20,6 +20,7 @@ use core\check\result;
 use action_link;
 use moodle_url;
 use tool_s3logs\local\client\s3_client;
+use tool_s3logs\task\process_logs;
 
 /**
  * Status check for s3 logs delivery.
@@ -79,6 +80,57 @@ class status extends check {
             return new result(result::WARNING, get_string('logarchiverdisabled', 'tool_s3logs'));
         }
 
+        // If the last run hit its maximum runtime, it usually means there were still
+        // eligible records left to archive when time ran out - i.e. the task is not keeping
+        // pace with new logs being created, and maxruntime should likely be increased.
+        $maxruntimewarning = $this->check_last_run_duration();
+        if ($maxruntimewarning !== null) {
+            return $maxruntimewarning;
+        }
+
         return new result(result::OK, get_string('connectionsuccess', 'tool_s3logs'));
+    }
+
+    /**
+     * Check whether the last run of the archiving task hit its configured maximum runtime.
+     *
+     * @return ?result A warning result if the last run maxed out, null otherwise.
+     */
+    private function check_last_run_duration(): ?result {
+        global $DB;
+
+        $maxruntime = (int)get_config('tool_s3logs', 'maxruntime');
+        if (empty($maxruntime)) {
+            return null;
+        }
+
+        $lastrun = $DB->get_records(
+            'task_log',
+            ['classname' => process_logs::class],
+            'id DESC',
+            'id, timestart, timeend',
+            0,
+            1
+        );
+
+        if (empty($lastrun)) {
+            return null;
+        }
+
+        $lastrun = reset($lastrun);
+        $duration = $lastrun->timeend - $lastrun->timestart;
+
+        if ($duration >= $maxruntime) {
+            return new result(
+                result::WARNING,
+                get_string('maxruntimeexceeded', 'tool_s3logs', format_time($maxruntime)),
+                get_string('maxruntimeexceeded_details', 'tool_s3logs', (object)[
+                    'duration' => (int)round($duration),
+                    'maxruntime' => $maxruntime,
+                ])
+            );
+        }
+
+        return null;
     }
 }
