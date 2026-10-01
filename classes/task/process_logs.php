@@ -218,6 +218,30 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
+     * Build the S3 object key for an archived batch of records.
+     *
+     * Normally {prefix}_{date}_{first}_{last}.csv, but the leading underscore is
+     * omitted when no prefix is configured, e.g. {date}_{first}_{last}.csv. The date
+     * is in ISO 8601 date format (Y-m-d), and is the timecreated of the earliest
+     * (oldest) record in the batch, not the time the task ran. The time-of-day
+     * component is omitted (events are batched by day, and it avoids colons in the key).
+     *
+     * @param string $prefix Configured S3 key prefix, may be empty.
+     * @param int $earliesttimecreated Timecreated of the earliest (oldest) record in the batch.
+     * @param int $firstrecord ID of the first (oldest) record in the batch.
+     * @param int $lastrecord ID of the last (newest) record in the batch.
+     * @return string
+     */
+    private function build_keyname(string $prefix, int $earliesttimecreated, int $firstrecord, int $lastrecord): string {
+        $parts = array_filter(
+            [$prefix, date('Y-m-d', $earliesttimecreated), $firstrecord, $lastrecord],
+            fn($part) => $part !== ''
+        );
+
+        return implode('_', $parts) . '.csv';
+    }
+
+    /**
      * Deletes rows from teh log store table.
      *
      * @param array $recordids Array of record ID's to delete
@@ -315,7 +339,7 @@ class process_logs extends \core\task\scheduled_task {
                 $firstrecord = min($recordids);
                 $lastrecord = max($recordids);
 
-                $keyname = $config->prefix . '_' . date('YmdHis') . '_' . $firstrecord . '_' . $lastrecord . '.csv';
+                $keyname = $this->build_keyname($config->prefix, $rangestart, $firstrecord, $lastrecord);
                 $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
                     'count' => $numrecords,
                     'elapsed' => $elapsedtime,
