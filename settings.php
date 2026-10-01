@@ -130,7 +130,8 @@ if ($hassiteconfig) {
             get_string('bucket', 'tool_s3logs'),
             get_string('bucket_desc', 'tool_s3logs'),
             '',
-            PARAM_TEXT
+            PARAM_TEXT,
+            60
         ));
 
         $settings->add(new admin_setting_configtext(
