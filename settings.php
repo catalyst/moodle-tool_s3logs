@@ -61,12 +61,12 @@ if ($hassiteconfig) {
             ''
         ));
 
-        $settings->add(new admin_setting_configtext(
+        $settings->add(new admin_setting_configduration(
             'tool_s3logs/maxlogage',
             get_string('maxlogage', 'tool_s3logs'),
             get_string('maxlogage_desc', 'tool_s3logs'),
-            18,
-            PARAM_INT
+            60 * 60 * 24 * 30 * 18, // 18 months, expressed in seconds (standardising on a month as 30 days).
+            60 * 60 * 24 // Default unit: days.
         ));
 
         $settings->add(new admin_setting_configtext(
