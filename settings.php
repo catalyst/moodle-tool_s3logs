@@ -40,6 +40,14 @@ if ($hassiteconfig) {
             get_string('generalsettings', 'tool_s3logs'),
             ''
         ));
+
+        // Async check for S3 connection, permissions, and task health (uses core check API via AJAX).
+        $settings->add(new admin_setting_check(
+            'tool_s3logs/check_status',
+            new \tool_s3logs\check\status(),
+            true
+        ));
+
         $settings->add(new admin_setting_configcheckbox(
             'tool_s3logs/enable',
             get_string('enable', 'tool_s3logs'),
@@ -110,11 +118,20 @@ if ($hassiteconfig) {
             ''
         ));
 
-        // Async check for S3 connection and permissions (uses core check API via AJAX).
-        $settings->add(new admin_setting_check(
-            'tool_s3logs/check_status',
-            new \tool_s3logs\check\status(),
-            true
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/bucket',
+            get_string('bucket', 'tool_s3logs'),
+            get_string('bucket_desc', 'tool_s3logs'),
+            '',
+            PARAM_TEXT,
+            60
+        ));
+
+        $settings->add(new admin_settings_aws_region(
+            'tool_s3logs/s3region',
+            get_string('s3region', 'tool_s3logs'),
+            get_string('s3region_desc', 'tool_s3logs'),
+            'ap-southeast-2'
         ));
 
         $settings->add(new admin_setting_configcheckbox(
@@ -122,14 +139,6 @@ if ($hassiteconfig) {
             get_string('usesdkcreds', 'tool_s3logs'),
             get_string('usesdkcreds_desc', 'tool_s3logs'),
             0
-        ));
-
-        $settings->add(new admin_setting_configtext(
-            'tool_s3logs/bucket',
-            get_string('bucket', 'tool_s3logs'),
-            get_string('bucket_desc', 'tool_s3logs'),
-            '',
-            PARAM_TEXT
         ));
 
         $settings->add(new admin_setting_configtext(
@@ -147,11 +156,8 @@ if ($hassiteconfig) {
             ''
         ));
 
-        $settings->add(new admin_settings_aws_region(
-            'tool_s3logs/s3region',
-            get_string('s3region', 'tool_s3logs'),
-            get_string('s3region_desc', 'tool_s3logs'),
-            'ap-southeast-2'
-        ));
+        // Hide the explicit credential fields when using the SDK's default credential chain.
+        $settings->hide_if('tool_s3logs/keyid', 'tool_s3logs/usesdkcreds', 'checked');
+        $settings->hide_if('tool_s3logs/secretkey', 'tool_s3logs/usesdkcreds', 'checked');
     }
 }
