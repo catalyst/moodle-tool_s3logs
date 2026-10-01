@@ -274,7 +274,7 @@ class process_logs extends \core\task\scheduled_task {
             mtrace('Log archive tasks are disabled.');
         } else {
             // Set up basic vars.
-            $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
+            $maxage = (int)$config->maxlogage; // Stored in seconds via admin_setting_configduration.
             $stopat = time() + $config->maxruntime;
             $rangeend = time() - $maxage; // The archive threshold ("time we are archiving up to").
 
