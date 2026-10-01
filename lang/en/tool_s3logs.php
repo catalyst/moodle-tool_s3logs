@@ -62,6 +62,14 @@ $string['privacy:metadata:tool_s3logs:realuserid'] = 'The ID of the real user be
 $string['privacy:metadata:tool_s3logs:relateduserid'] = 'The ID of a user related to an event';
 $string['privacy:metadata:tool_s3logs:userid'] = 'The ID of the user who triggered an event';
 $string['processlogs'] = 'Run the S3 log processing task';
+$string['progress_archived'] = 'Archived {$a->count} records to {$a->keyname}.';
+$string['progress_archiving'] = 'Archiving records created between {$a->start} and {$a->end}';
+$string['progress_deleting'] = 'Deleting {$a} records from the database...';
+$string['progress_extracted'] = 'Extracting: {$a}';
+$string['progress_finding'] = 'Finding oldest eligible record...';
+$string['progress_norecords'] = 'No records extracted before time limit was reached.';
+$string['progress_uploading'] = 'Uploading {$a->count} records to S3 (extraction took {$a->elapsed}s)...';
+$string['progress_vacuuming'] = 'Running VACUUM on the log table...';
 $string['s3region'] = 'AWS Region';
 $string['s3region_desc'] = 'The AWS Region to use for API calls';
 $string['sdkcredserror'] = 'Couldn\'t find AWS credentials. It\'s unsafe to enable this setting. Follow up <a href="https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/guide_credentials.html">AWS documentation</a>.';

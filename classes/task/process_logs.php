@@ -27,6 +27,8 @@ use tool_s3logs\local\client\s3_client;
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class process_logs extends \core\task\scheduled_task {
+    use \core\task\stored_progress_task_trait;
+
     /**
      * {@inheritDoc}
      * @see \core\task\scheduled_task::get_name()
@@ -103,6 +105,40 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
+     * Find the timecreated of the oldest log record eligible for archiving.
+     *
+     * This is a cheap, indexed lookup (ORDER BY timecreated ASC LIMIT 1) used
+     * as the starting point of a time-based progress estimate, avoiding the
+     * cost of a full COUNT() over the (potentially huge) logstore table.
+     *
+     * @param int $interval Interval of months in seconds.
+     * @param object $config Plugin config.
+     * @return ?int Timecreated of the oldest eligible record, or null if there are none.
+     */
+    private function get_oldest_eligible_time($interval, $config): ?int {
+        global $DB;
+
+        $threshold = time() - $interval;
+        [$coursefiltersql, $coursefilterparams] = $this->get_course_filter_sql($config);
+
+        $oldest = $DB->get_records_select(
+            'logstore_standard_log',
+            'timecreated <= ?' . $coursefiltersql,
+            array_merge([$threshold], $coursefilterparams),
+            'timecreated ASC',
+            'id, timecreated',
+            0,
+            1
+        );
+
+        if (empty($oldest)) {
+            return null;
+        }
+
+        return reset($oldest)->timecreated;
+    }
+
+    /**
      * Extract the log records from the db and write
      * to a temporary file.
      *
@@ -110,13 +146,19 @@ class process_logs extends \core\task\scheduled_task {
      * we want to get all records that are older than this
      * number of months.
      *
+     * Progress is reported based on the timecreated of the records being
+     * processed, relative to the full time range being archived. This avoids
+     * needing an expensive record count to know how much work there is to do.
+     *
      * @param int $stopat The time to stop process, if there are still records.
      * @param int $interval Interval of months in seconds.
      * @param resource $fp File pointer to temp file to write to.
      * @param object $config Plugin config.
+     * @param ?int $rangestart Timecreated of the oldest eligible record, used to report progress. Null to skip reporting.
+     * @param ?int $rangeend Timecreated of the newest eligible record (the archive threshold).
      * @return array $recordids the ID's of the log entries written to the file.
      */
-    private function extract_records($stopat, $interval, $fp, $config) {
+    private function extract_records($stopat, $interval, $fp, $config, ?int $rangestart = null, ?int $rangeend = null) {
         global $DB;
 
         $threshold = time() - $interval;
@@ -124,6 +166,8 @@ class process_logs extends \core\task\scheduled_task {
         $start = 0;
         $limit = 1000;
         $step = 1000;
+        $reportprogress = $this->progress !== null && $rangestart !== null && $rangeend !== null;
+        $timerange = $reportprogress ? max($rangeend - $rangestart, 1) : 0;
 
         mtrace('Getting records older than: ' . date('Y-m-d H:i:s', $threshold));
 
@@ -143,7 +187,6 @@ class process_logs extends \core\task\scheduled_task {
             );
 
             if (empty($results)) {
-                mtrace('Records processing finished before time limit reached');
                 break; // Stop trying to get records when we run out.
             }
 
@@ -152,9 +195,22 @@ class process_logs extends \core\task\scheduled_task {
 
             // We do not want to load all results into memory,
             // we want to write them to a file as we go.
+            $lasttimecreated = null;
             foreach ($results as $key => $value) {
                 $recordids[] = $key;
                 fputcsv($fp, (array)$value);
+                $lasttimecreated = $value->timecreated;
+            }
+
+            // Results are ordered oldest first, so the last record processed in this batch
+            // tells us how far through the time range we have got. Extraction is capped at 90%,
+            // reserving the remainder for the upload/delete stages that follow it.
+            if ($reportprogress && $lasttimecreated !== null) {
+                $percent = min(90, max(0, (($lasttimecreated - $rangestart) / $timerange) * 90));
+                $this->progress->update_full(
+                    $percent,
+                    get_string('progress_extracted', 'tool_s3logs', date('Y-m-d H:i:s', $lasttimecreated))
+                );
             }
         }
 
@@ -196,9 +252,12 @@ class process_logs extends \core\task\scheduled_task {
         }
 
         try {
-            mtrace('Running VACUUM on logstore_standard_log...');
+            if ($this->progress !== null) {
+                $this->progress->update_full(99, get_string('progress_vacuuming', 'tool_s3logs'));
+            } else {
+                mtrace('Running VACUUM on logstore_standard_log...');
+            }
             $DB->execute('VACUUM {logstore_standard_log}');
-            mtrace('VACUUM complete.');
         } catch (\dml_exception $e) {
             mtrace('WARNING: VACUUM on logstore_standard_log failed: ' . $e->getMessage());
         }
@@ -217,22 +276,36 @@ class process_logs extends \core\task\scheduled_task {
             // Set up basic vars.
             $maxage = 60 * 60 * 24 * 30 * $config->maxlogage; // We standardise on a month having 30 days.
             $stopat = time() + $config->maxruntime;
+            $rangeend = time() - $maxage; // The archive threshold ("time we are archiving up to").
 
-            // Get a temp file.
-            mtrace('Getting temporary file...');
-             [$tempfile, $fp] = $this->get_temp_file();
+            $this->start_stored_progress();
+            $this->progress->update_full(0, get_string('progress_finding', 'tool_s3logs'));
 
-            // Add the table headers to the temp file.
-            mtrace('Writing table headers to temporary file...');
+            // Find the oldest eligible record's timecreated, so we can report progress based on
+            // the time range being archived, rather than an expensive COUNT() of matching records.
+            $rangestart = $this->get_oldest_eligible_time($maxage, $config);
+
+            if ($rangestart === null) {
+                $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
+                return;
+            }
+
+            $progressrange = (object)[
+                'start' => date('Y-m-d H:i:s', $rangestart),
+                'end' => date('Y-m-d H:i:s', $rangeend),
+            ];
+            $this->progress->update_full(0, get_string('progress_archiving', 'tool_s3logs', $progressrange));
+
+            // Get a temp file and write the headers to it.
+            [$tempfile, $fp] = $this->get_temp_file();
             $headerwrite = $this->write_file_headers($fp);
             if (!$headerwrite) {
                 throw new \moodle_exception('noheaders', 'tool_s3logs', '');
             }
 
             // Extract records from DB and add them to the temp file.
-            mtrace('Finding records and updating temporary file...');
             $starttime = time();
-            $recordids = $this->extract_records($stopat, $maxage, $fp, $config);
+            $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $rangestart, $rangeend);
             fclose($fp); // Close file now that we have it.
             $elapsedtime = time() - $starttime;
 
@@ -243,8 +316,10 @@ class process_logs extends \core\task\scheduled_task {
                 $lastrecord = max($recordids);
 
                 $keyname = $config->prefix . '_' . date('YmdHis') . '_' . $firstrecord . '_' . $lastrecord . '.csv';
-                mtrace('Extracting records from DB took: ' . $elapsedtime . ' seconds...');
-                mtrace('Uploading ' . $numrecords . ' records to S3...');
+                $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
+                    'count' => $numrecords,
+                    'elapsed' => $elapsedtime,
+                ]));
 
                 $s3client = new s3_client();
                 $s3url = $s3client->upload_file($tempfile, $keyname);
@@ -252,14 +327,17 @@ class process_logs extends \core\task\scheduled_task {
                 if (!$s3url) {
                     throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
                 } else {
-                    mtrace('Uploaded file name: ' . $keyname);
                     // Delete the processed records from the log table.
-                    mtrace('Deleting ' . $numrecords . ' records from DB...');
+                    $this->progress->update_full(98, get_string('progress_deleting', 'tool_s3logs', $numrecords));
                     $this->delete_records($recordids);
                     $this->vacuum_logstore($config);
+                    $this->progress->update_full(100, get_string('progress_archived', 'tool_s3logs', (object)[
+                        'count' => $numrecords,
+                        'keyname' => $keyname,
+                    ]));
                 }
             } else {
-                mtrace('No records found to process, finishing...');
+                $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
             }
         }
     }
