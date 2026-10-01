@@ -331,40 +331,14 @@ final class process_logs_test extends \advanced_testcase {
      * The S3 keyname is {prefix}_{YmdHis}_{first}_{last}.csv.
      * Verify different prefixes produce correctly formatted keynames.
      *
-     * @covers \tool_s3logs\task\process_logs::extract_records
+     * @covers \tool_s3logs\task\process_logs::build_keyname
      */
     public function test_keyname_uses_configured_prefix(): void {
-        global $DB;
-        $this->resetAfterTest();
-
-        $ctx = \context_system::instance();
-        $record = (object)[
-            'edulevel'          => 0,
-            'contextid'         => $ctx->id,
-            'contextlevel'      => $ctx->contextlevel,
-            'contextinstanceid' => $ctx->instanceid,
-            'userid'            => 1,
-            'timecreated'       => time() - self::DEFAULT_INTERVAL - 1,
-            'courseid'          => 0,
-        ];
-        $DB->insert_record('logstore_standard_log', $record);
-        $DB->insert_record('logstore_standard_log', $record);
-
         foreach (['myprefix', 'logs', 'archive'] as $prefix) {
-            $config   = (object)['courseids' => '', 'coursefiltermode' => 'include'];
-            $tempdir  = make_temp_directory('s3logs_test');
-            $tempfile = tempnam($tempdir, 's3logs_test_');
-            $fp       = fopen($tempfile, 'w');
+            $keyname = $this->invoke_private('build_keyname', [$prefix, 10, 20]);
 
-            $this->expectOutputRegex('/Getting records older than/');
-            $ids = $this->invoke_private('extract_records', [time() + 3600, self::DEFAULT_INTERVAL, $fp, $config]);
-            fclose($fp);
-
-            $this->assertNotEmpty($ids);
-
-            $keyname = $prefix . '_' . date('YmdHis') . '_' . min($ids) . '_' . max($ids) . '.csv';
             $this->assertMatchesRegularExpression(
-                '/^' . preg_quote($prefix, '/') . '_\d{14}_\d+_\d+\.csv$/',
+                '/^' . preg_quote($prefix, '/') . '_\d{14}_10_20\.csv$/',
                 $keyname,
                 "Keyname '$keyname' does not match expected format for prefix '$prefix'"
             );
@@ -372,38 +346,15 @@ final class process_logs_test extends \advanced_testcase {
     }
 
     /**
-     * An empty prefix produces a keyname starting with an underscore.
+     * An empty prefix omits the leading underscore, rather than leaving a stray one behind.
      *
-     * @covers \tool_s3logs\task\process_logs::extract_records
+     * @covers \tool_s3logs\task\process_logs::build_keyname
      */
     public function test_keyname_with_empty_prefix(): void {
-        global $DB;
-        $this->resetAfterTest();
+        $keyname = $this->invoke_private('build_keyname', ['', 10, 20]);
 
-        $ctx = \context_system::instance();
-        $DB->insert_record('logstore_standard_log', (object)[
-            'edulevel'          => 0,
-            'contextid'         => $ctx->id,
-            'contextlevel'      => $ctx->contextlevel,
-            'contextinstanceid' => $ctx->instanceid,
-            'userid'            => 1,
-            'timecreated'       => time() - self::DEFAULT_INTERVAL - 1,
-            'courseid'          => 0,
-        ]);
-
-        $config   = (object)['courseids' => '', 'coursefiltermode' => 'include'];
-        $tempdir  = make_temp_directory('s3logs_test');
-        $tempfile = tempnam($tempdir, 's3logs_test_');
-        $fp       = fopen($tempfile, 'w');
-
-        $this->expectOutputRegex('/Getting records older than/');
-        $ids = $this->invoke_private('extract_records', [time() + 3600, self::DEFAULT_INTERVAL, $fp, $config]);
-        fclose($fp);
-
-        $this->assertNotEmpty($ids);
-
-        $keyname = '' . '_' . date('YmdHis') . '_' . min($ids) . '_' . max($ids) . '.csv';
-        $this->assertStringStartsWith('_', $keyname);
+        $this->assertMatchesRegularExpression('/^\d{14}_10_20\.csv$/', $keyname);
+        $this->assertStringStartsNotWith('_', $keyname);
         $this->assertStringEndsWith('.csv', $keyname);
     }
 

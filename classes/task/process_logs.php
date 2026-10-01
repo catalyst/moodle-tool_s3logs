@@ -218,6 +218,26 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
+     * Build the S3 object key for an archived batch of records.
+     *
+     * Normally {prefix}_{YmdHis}_{first}_{last}.csv, but the leading underscore is
+     * omitted when no prefix is configured, e.g. {YmdHis}_{first}_{last}.csv.
+     *
+     * @param string $prefix Configured S3 key prefix, may be empty.
+     * @param int $firstrecord ID of the first (oldest) record in the batch.
+     * @param int $lastrecord ID of the last (newest) record in the batch.
+     * @return string
+     */
+    private function build_keyname(string $prefix, int $firstrecord, int $lastrecord): string {
+        $parts = array_filter(
+            [$prefix, date('YmdHis'), $firstrecord, $lastrecord],
+            fn($part) => $part !== ''
+        );
+
+        return implode('_', $parts) . '.csv';
+    }
+
+    /**
      * Deletes rows from teh log store table.
      *
      * @param array $recordids Array of record ID's to delete
@@ -315,7 +335,7 @@ class process_logs extends \core\task\scheduled_task {
                 $firstrecord = min($recordids);
                 $lastrecord = max($recordids);
 
-                $keyname = $config->prefix . '_' . date('YmdHis') . '_' . $firstrecord . '_' . $lastrecord . '.csv';
+                $keyname = $this->build_keyname($config->prefix, $firstrecord, $lastrecord);
                 $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
                     'count' => $numrecords,
                     'elapsed' => $elapsedtime,
