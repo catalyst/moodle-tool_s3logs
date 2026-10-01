@@ -73,6 +73,14 @@ if ($hassiteconfig) {
                 get_string('maxlogage_desc', 'tool_s3logs'),
                 18, PARAM_INT));
 
+        $settings->add(new admin_setting_configtext(
+            'tool_s3logs/chunksize',
+            get_string('chunksize', 'tool_s3logs'),
+            get_string('chunksize_desc', 'tool_s3logs'),
+            100000,
+            PARAM_INT
+        ));
+
         $settings->add(new admin_setting_configtext('tool_s3logs/prefix',
                 get_string('prefix', 'tool_s3logs' ),
                 get_string('prefix_desc', 'tool_s3logs'),
