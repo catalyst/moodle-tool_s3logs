@@ -50,6 +50,7 @@ class status extends check {
      */
     public function get_result(): result {
         $client = new s3_client();
+        $consolelink = $this->get_console_link_html($client);
 
         // Connection check.
         $connection = $client->test_connection();
@@ -58,7 +59,7 @@ class status extends check {
             if (!empty($connection->details)) {
                 $details = s($connection->details);
             }
-            return new result(result::ERROR, trim(get_string('connectionfailure', 'tool_s3logs', '')), $details);
+            return new result(result::ERROR, trim(get_string('connectionfailure', 'tool_s3logs', '')), $details . $consolelink);
         }
 
         // Permission check.
@@ -72,31 +73,51 @@ class status extends check {
                 }
             }
             $details = $detailmsgs ? s($detailmsgs) : '';
-            return new result(result::ERROR, trim(get_string('writefailure', 'tool_s3logs', '')), $details);
+            return new result(result::ERROR, trim(get_string('writefailure', 'tool_s3logs', '')), $details . $consolelink);
         }
 
         // All configured, but disabled.
         if (empty(get_config('tool_s3logs', 'enable'))) {
-            return new result(result::WARNING, get_string('logarchiverdisabled', 'tool_s3logs'));
+            return new result(result::WARNING, get_string('logarchiverdisabled', 'tool_s3logs'), $consolelink);
         }
 
         // If the last run hit its maximum runtime, it usually means there were still
         // eligible records left to archive when time ran out - i.e. the task is not keeping
         // pace with new logs being created, and maxruntime should likely be increased.
-        $maxruntimewarning = $this->check_last_run_duration();
+        $maxruntimewarning = $this->check_last_run_duration($consolelink);
         if ($maxruntimewarning !== null) {
             return $maxruntimewarning;
         }
 
-        return new result(result::OK, get_string('connectionsuccess', 'tool_s3logs'));
+        return new result(result::OK, get_string('connectionsuccess', 'tool_s3logs'), $consolelink);
+    }
+
+    /**
+     * Builds an HTML link to the bucket in the AWS console, for inclusion in a result's details.
+     *
+     * @param s3_client $client Client to use to build the link.
+     * @return string HTML chunk with the link, or an empty string if the bucket/region are not configured.
+     */
+    private function get_console_link_html(s3_client $client): string {
+        $consoleurl = $client->get_console_url();
+        if ($consoleurl === null) {
+            return '';
+        }
+
+        return \html_writer::link(
+            $consoleurl,
+            get_string('viewbucketinconsole', 'tool_s3logs'),
+            ['target' => '_blank', 'rel' => 'noopener noreferrer']
+        );
     }
 
     /**
      * Check whether the last run of the archiving task hit its configured maximum runtime.
      *
+     * @param string $consolelink HTML chunk with a link to the bucket in the AWS console, appended to the details.
      * @return ?result A warning result if the last run maxed out, null otherwise.
      */
-    private function check_last_run_duration(): ?result {
+    private function check_last_run_duration(string $consolelink = ''): ?result {
         global $DB;
 
         $maxruntime = (int)get_config('tool_s3logs', 'maxruntime');
@@ -127,7 +148,7 @@ class status extends check {
                 get_string('maxruntimeexceeded_details', 'tool_s3logs', (object)[
                     'duration' => (int)round($duration),
                     'maxruntime' => $maxruntime,
-                ])
+                ]) . $consolelink
             );
         }
 

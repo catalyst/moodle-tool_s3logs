@@ -262,6 +262,36 @@ class s3_client {
     }
 
     /**
+     * Builds a deep link into the AWS console web UI to inspect the bucket contents.
+     *
+     * Uses the standard public S3 console URL so it works regardless of the
+     * AWS account (any account-specific vanity console domain will redirect here after login).
+     *
+     * @return ?string Console URL, or null if the bucket/region are not configured.
+     */
+    public function get_console_url(): ?string {
+        if (empty($this->config->bucket) || empty($this->config->s3region)) {
+            return null;
+        }
+
+        $params = [
+            'region' => $this->config->s3region,
+            'tab' => 'objects',
+        ];
+
+        if (!empty($this->config->prefix)) {
+            $params['prefix'] = $this->config->prefix . '/';
+        }
+
+        $url = new \moodle_url(
+            'https://s3.console.aws.amazon.com/s3/buckets/' . rawurlencode($this->config->bucket),
+            $params
+        );
+
+        return $url->out(false);
+    }
+
+    /**
      * Get details from the given exception.
      *
      * @param \Exception $exception Exception to get details from.
