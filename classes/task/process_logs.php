@@ -39,6 +39,12 @@ class process_logs extends \core\task\scheduled_task {
     private ?string $memorylimitmessage = null;
 
     /**
+     * @var ?string Max runtime message, set by extract_records(); mtraced after the progress
+     * bar so it doesn't mess up the bar's output.
+     */
+    private ?string $timeoutmessage = null;
+
+    /**
      * {@inheritDoc}
      * @see \core\task\scheduled_task::get_name()
      */
@@ -334,6 +340,13 @@ class process_logs extends \core\task\scheduled_task {
             }
         }
 
+        if (time() > $stopat) {
+            // Defer the mtrace until after the progress bar (in execute()) rather than
+            // printing it here, so it doesn't mess up the progress bar's output.
+            $this->timeoutmessage = 'WARNING: Maximum run time of ' . $config->maxruntime
+                . 's reached, stopping processing for this run';
+        }
+
         return $recordids;
     }
 
@@ -453,6 +466,16 @@ class process_logs extends \core\task\scheduled_task {
                 $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $bounds->startid, $bounds->endid);
                 fclose($fp); // Close file now that we have it.
 
+                // Deferred from extract_records() til immediately after the progress bar, so
+                // they don't mess up its output, but before anything else happens.
+                if ($this->timeoutmessage !== null) {
+                    mtrace($this->timeoutmessage);
+                }
+
+                if ($this->memorylimitmessage !== null) {
+                    mtrace($this->memorylimitmessage);
+                }
+
                 if (!empty($recordids)) {
                     $numrecords = count($recordids);
                     $firstrecord = min($recordids);
@@ -494,12 +517,6 @@ class process_logs extends \core\task\scheduled_task {
             } finally {
                 if (file_exists($tempfile)) {
                     unlink($tempfile);
-                }
-
-                if ($this->memorylimitmessage !== null) {
-                    // Deferred from extract_records() til after the progress bar, so it doesn't
-                    // mess up its output.
-                    mtrace($this->memorylimitmessage);
                 }
             }
         }
