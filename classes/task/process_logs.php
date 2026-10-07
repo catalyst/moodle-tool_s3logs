@@ -311,10 +311,10 @@ class process_logs extends \core\task\scheduled_task {
 
             // The ID of the last record processed tells us how far through the eligible ID
             // range we have got, which (since we extract in ID order) increases smoothly and
-            // monotonically as the task runs. Extraction is capped at 90%, reserving the
-            // remainder for the upload/delete stages that follow it.
+            // monotonically as the task runs. The upload/delete steps that follow extraction
+            // happen outside the progress bar (plain mtrace), so extraction runs the bar to 100%.
             if ($reportprogress && $lasttimecreated !== null) {
-                $percent = min(90, max(0, (($lastid - $startid) / $idrange) * 90));
+                $percent = min(100, max(0, (($lastid - $startid) / $idrange) * 100));
                 $progresstext = get_string('progress_extracted', 'tool_s3logs', date('Y-m-d H:i:s', $lasttimecreated));
 
                 if (!empty($CFG->debugdeveloper)) {
@@ -393,12 +393,10 @@ class process_logs extends \core\task\scheduled_task {
         }
 
         try {
-            if ($this->progress !== null) {
-                $this->progress->update_full(99, get_string('progress_vacuuming', 'tool_s3logs'));
-            } else {
-                mtrace('Running VACUUM on logstore_standard_log...');
-            }
+            mtrace(get_string('progress_vacuuming', 'tool_s3logs'));
+            $starttime = microtime(true);
             $DB->execute('VACUUM {logstore_standard_log}');
+            mtrace(get_string('progress_vacuumed', 'tool_s3logs', sprintf('%.1f', microtime(true) - $starttime)));
         } catch (\dml_exception $e) {
             mtrace('WARNING: VACUUM on logstore_standard_log failed: ' . $e->getMessage());
         }
@@ -419,19 +417,19 @@ class process_logs extends \core\task\scheduled_task {
             $stopat = time() + $config->maxruntime;
             $rangeend = time() - $maxage; // The archive threshold ("time we are archiving up to").
 
-            $this->start_stored_progress();
-            $this->progress->update_full(0, get_string('progress_finding', 'tool_s3logs'));
-
             // Find the bounds of the eligible records (by ID, for progress reporting, and by
             // timecreated, for the keyname/status messages), rather than running an expensive
             // COUNT() of matching records.
+            mtrace(get_string('progress_finding', 'tool_s3logs'));
             $bounds = $this->get_eligible_record_bounds($maxage, $config);
 
             if ($bounds === null) {
-                $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
+                mtrace(get_string('progress_norecords', 'tool_s3logs'));
                 return;
             }
             $rangestart = $bounds->starttime;
+
+            $this->start_stored_progress();
 
             $progressrange = (object)[
                 'start' => date('Y-m-d H:i:s', $rangestart),
@@ -448,37 +446,44 @@ class process_logs extends \core\task\scheduled_task {
 
             try {
                 // Extract records from DB and add them to the temp file.
-                $starttime = time();
+                $starttime = microtime(true);
                 $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $bounds->startid, $bounds->endid);
                 fclose($fp); // Close file now that we have it.
-                $elapsedtime = time() - $starttime;
 
                 if (!empty($recordids)) {
-                    // If file isn't empty upload this file to s3.
                     $numrecords = count($recordids);
                     $firstrecord = min($recordids);
                     $lastrecord = max($recordids);
-
                     $keyname = $this->build_keyname($config->prefix, $rangestart, $firstrecord, $lastrecord);
-                    $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
+
+                    mtrace(get_string('progress_extraction_complete', 'tool_s3logs', (object)[
                         'count' => $numrecords,
-                        'elapsed' => $elapsedtime,
+                        'tempfile' => $tempfile,
+                        'elapsed' => sprintf('%.1f', microtime(true) - $starttime),
                     ]));
 
+                    $starttime = microtime(true);
                     $s3client = new s3_client();
                     $s3url = $s3client->upload_file($tempfile, $keyname);
 
                     if (!$s3url) {
                         throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
                     } else {
-                        // Delete the processed records from the log table.
-                        $this->progress->update_full(98, get_string('progress_deleting', 'tool_s3logs', $numrecords));
-                        $this->delete_records($recordids);
-                        $this->vacuum_logstore($config);
-                        $this->progress->update_full(100, get_string('progress_archived', 'tool_s3logs', (object)[
+                        mtrace(get_string('progress_uploaded', 'tool_s3logs', (object)[
                             'count' => $numrecords,
                             'keyname' => $keyname,
+                            'elapsed' => sprintf('%.1f', microtime(true) - $starttime),
                         ]));
+
+                        // Delete the processed records from the log table.
+                        $starttime = microtime(true);
+                        $this->delete_records($recordids);
+                        mtrace(get_string('progress_deleted', 'tool_s3logs', (object)[
+                            'count' => $numrecords,
+                            'elapsed' => sprintf('%.1f', microtime(true) - $starttime),
+                        ]));
+
+                        $this->vacuum_logstore($config);
                     }
                 } else {
                     $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
