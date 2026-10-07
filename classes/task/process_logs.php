@@ -33,16 +33,10 @@ class process_logs extends \core\task\scheduled_task {
     const MEMORY_LIMIT_THRESHOLD = 0.8; // Stop processing if we have used 80% of the memory limit.
 
     /**
-     * @var ?string Memory guard message, set by extract_records(); mtraced after the progress
-     * bar so it doesn't mess up the bar's output.
+     * @var ?string Early exit reason (memory/time/interrupt), set by extract_records(); mtraced
+     * after the progress bar so it doesn't mess up the bar's output.
      */
-    private ?string $memorylimitmessage = null;
-
-    /**
-     * @var ?string Max runtime message, set by extract_records(); mtraced after the progress
-     * bar so it doesn't mess up the bar's output.
-     */
-    private ?string $timeoutmessage = null;
+    private ?string $earlyexitmessage = null;
 
     /**
      * {@inheritDoc}
@@ -288,8 +282,15 @@ class process_logs extends \core\task\scheduled_task {
                 $memlimitthr = round(self::MEMORY_LIMIT_THRESHOLD * 100, 0);
                 // Defer the mtrace until after the progress bar (in execute()) rather than
                 // printing it here, so it doesn't mess up the progress bar's output.
-                $this->memorylimitmessage = "Memory limit threshold of {$memlimitthr}% reached, "
+                $this->earlyexitmessage = "Memory limit threshold of {$memlimitthr}% reached, "
                     . "stopping processing to avoid an out-of-memory error";
+                break;
+            }
+
+            if (\core\local\cli\shutdown::should_gracefully_exit()) {
+                // Defer the mtrace until after the progress bar (in execute()) rather than
+                // printing it here, so it doesn't mess up the progress bar's output.
+                $this->earlyexitmessage = 'Interrupt signal received, stopping processing for this run';
                 break;
             }
 
@@ -340,10 +341,10 @@ class process_logs extends \core\task\scheduled_task {
             }
         }
 
-        if (time() > $stopat) {
+        if ($this->earlyexitmessage === null && time() > $stopat) {
             // Defer the mtrace until after the progress bar (in execute()) rather than
             // printing it here, so it doesn't mess up the progress bar's output.
-            $this->timeoutmessage = 'WARNING: Maximum run time of ' . $config->maxruntime
+            $this->earlyexitmessage = 'WARNING: Maximum run time of ' . $config->maxruntime
                 . 's reached, stopping processing for this run';
         }
 
@@ -467,13 +468,9 @@ class process_logs extends \core\task\scheduled_task {
                 fclose($fp); // Close file now that we have it.
 
                 // Deferred from extract_records() til immediately after the progress bar, so
-                // they don't mess up its output, but before anything else happens.
-                if ($this->timeoutmessage !== null) {
-                    mtrace($this->timeoutmessage);
-                }
-
-                if ($this->memorylimitmessage !== null) {
-                    mtrace($this->memorylimitmessage);
+                // it doesn't mess up its output, but before anything else happens.
+                if ($this->earlyexitmessage !== null) {
+                    mtrace($this->earlyexitmessage);
                 }
 
                 if (!empty($recordids)) {
