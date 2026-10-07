@@ -30,6 +30,8 @@
  * @return bool
  */
 function xmldb_tool_s3logs_upgrade($oldversion) {
+    global $CFG;
+
     if ($oldversion < 2026052903) {
         // The maxlogage setting used to be stored as a number of months (PARAM_INT) and is now
         // stored in seconds, to support the admin_setting_configduration widget. Convert any
@@ -41,6 +43,18 @@ function xmldb_tool_s3logs_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2026052903, 'tool', 's3logs');
+    }
+
+    if ($oldversion < 2026052910) {
+        // Temp files used to be written to $CFG->tempdir/s3logs_upload (shared storage), but are
+        // now written to a per-request, node-local directory instead, and cleaned up as the task
+        // runs. Remove any old files left behind under the old shared location.
+        $olddir = $CFG->tempdir . '/s3logs_upload';
+        if (is_dir($olddir)) {
+            fulldelete($olddir);
+        }
+
+        upgrade_plugin_savepoint(true, 2026052910, 'tool', 's3logs');
     }
 
     return true;
