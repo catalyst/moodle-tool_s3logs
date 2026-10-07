@@ -33,6 +33,12 @@ class process_logs extends \core\task\scheduled_task {
     const MEMORY_LIMIT_THRESHOLD = 0.8; // Stop processing if we have used 80% of the memory limit.
 
     /**
+     * @var ?string Memory guard message, set by extract_records(); mtraced after the progress
+     * bar so it doesn't mess up the bar's output.
+     */
+    private ?string $memorylimitmessage = null;
+
+    /**
      * {@inheritDoc}
      * @see \core\task\scheduled_task::get_name()
      */
@@ -167,25 +173,56 @@ class process_logs extends \core\task\scheduled_task {
     }
 
     /**
-     * Determines whether the memory usage for self::extract_records() has exceeded the defined threshold.
+     * Current memory usage as a fraction of the configured PHP memory limit.
      *
-     * @return bool Returns true when memory usage reaches self::MEMORY_LIMIT_THRESHOLD of memory limit; otherwise false.
+     * @return ?float Usage / limit (e.g. 0.42 for 42%), or null if there is no usable limit
+     *      to compare against (unlimited, or an invalid/unparsable memory_limit value).
      */
-    public static function has_memory_exceeded(): bool {
+    private static function get_memory_usage_ratio(): ?float {
         $memlimit = ini_get('memory_limit');
 
         if ($memlimit === false || $memlimit === '-1' || $memlimit === '') {
             // No memory limit.
-            return false;
+            return null;
         }
 
         $reallimit = get_real_size($memlimit);
         if ($reallimit <= 0) {
             // Invalid or unusable configured limit.
-            return false;
+            return null;
         }
 
-        return memory_get_usage(true) >= ($reallimit * self::MEMORY_LIMIT_THRESHOLD);
+        return memory_get_usage(true) / $reallimit;
+    }
+
+    /**
+     * Determines whether the memory usage for self::extract_records() has exceeded the defined threshold.
+     *
+     * @return bool Returns true when memory usage reaches self::MEMORY_LIMIT_THRESHOLD of memory limit; otherwise false.
+     */
+    public static function has_memory_exceeded(): bool {
+        $ratio = self::get_memory_usage_ratio();
+
+        return $ratio !== null && $ratio >= self::MEMORY_LIMIT_THRESHOLD;
+    }
+
+    /**
+     * Current memory usage, formatted for display in progress/debug text.
+     *
+     * Shown as a percentage of the configured memory_limit where one is set (matching what
+     * self::has_memory_exceeded() checks against), falling back to an absolute size when
+     * there is no usable limit to express it as a percentage of.
+     *
+     * @return string e.g. "42.3%" or, when unlimited/unparsable, an absolute size e.g. "128MB".
+     */
+    private static function get_memory_usage_display(): string {
+        $ratio = self::get_memory_usage_ratio();
+
+        if ($ratio === null) {
+            return display_size(memory_get_usage(true));
+        }
+
+        return round($ratio * 100, 1) . '%';
     }
 
     /**
@@ -215,7 +252,7 @@ class process_logs extends \core\task\scheduled_task {
      * @return array $recordids the ID's of the log entries written to the file.
      */
     private function extract_records($stopat, $interval, $fp, $config, ?int $startid = null, ?int $endid = null) {
-        global $DB;
+        global $DB, $CFG;
 
         $threshold = time() - $interval;
         $recordids = [];
@@ -238,7 +275,10 @@ class process_logs extends \core\task\scheduled_task {
         while (time() <= $stopat) {
             if (self::has_memory_exceeded()) {
                 $memlimitthr = round(self::MEMORY_LIMIT_THRESHOLD * 100, 0);
-                mtrace("Memory limit threshold of {$memlimitthr}% reached, stopping processing to avoid an out-of-memory error");
+                // Defer the mtrace until after the progress bar (in execute()) rather than
+                // printing it here, so it doesn't mess up the progress bar's output.
+                $this->memorylimitmessage = "Memory limit threshold of {$memlimitthr}% reached, "
+                    . "stopping processing to avoid an out-of-memory error";
                 break;
             }
 
@@ -271,10 +311,15 @@ class process_logs extends \core\task\scheduled_task {
             // remainder for the upload/delete stages that follow it.
             if ($reportprogress && $lasttimecreated !== null) {
                 $percent = min(90, max(0, (($lastid - $startid) / $idrange) * 90));
-                $this->progress->update_full(
-                    $percent,
-                    get_string('progress_extracted', 'tool_s3logs', date('Y-m-d H:i:s', $lasttimecreated))
-                );
+                $progresstext = get_string('progress_extracted', 'tool_s3logs', date('Y-m-d H:i:s', $lasttimecreated));
+
+                if (!empty($CFG->debugdeveloper)) {
+                    // Debugging only: suffix the progress text (rather than a separate mtrace)
+                    // with memory usage, so it doesn't garble the progress bar's own output.
+                    $progresstext .= ' (' . get_string('progress_memory', 'tool_s3logs', self::get_memory_usage_display()) . ')';
+                }
+
+                $this->progress->update_full($percent, $progresstext);
             }
 
             if ($count < $limit) {
@@ -397,41 +442,49 @@ class process_logs extends \core\task\scheduled_task {
                 throw new \moodle_exception('noheaders', 'tool_s3logs', '');
             }
 
-            // Extract records from DB and add them to the temp file.
-            $starttime = time();
-            $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $bounds->startid, $bounds->endid);
-            fclose($fp); // Close file now that we have it.
-            $elapsedtime = time() - $starttime;
+            try {
+                // Extract records from DB and add them to the temp file.
+                $starttime = time();
+                $recordids = $this->extract_records($stopat, $maxage, $fp, $config, $bounds->startid, $bounds->endid);
+                fclose($fp); // Close file now that we have it.
+                $elapsedtime = time() - $starttime;
 
-            if (!empty($recordids)) {
-                // If file isn't empty upload this file to s3.
-                $numrecords = count($recordids);
-                $firstrecord = min($recordids);
-                $lastrecord = max($recordids);
+                if (!empty($recordids)) {
+                    // If file isn't empty upload this file to s3.
+                    $numrecords = count($recordids);
+                    $firstrecord = min($recordids);
+                    $lastrecord = max($recordids);
 
-                $keyname = $this->build_keyname($config->prefix, $rangestart, $firstrecord, $lastrecord);
-                $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
-                    'count' => $numrecords,
-                    'elapsed' => $elapsedtime,
-                ]));
-
-                $s3client = new s3_client();
-                $s3url = $s3client->upload_file($tempfile, $keyname);
-
-                if (!$s3url) {
-                    throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
-                } else {
-                    // Delete the processed records from the log table.
-                    $this->progress->update_full(98, get_string('progress_deleting', 'tool_s3logs', $numrecords));
-                    $this->delete_records($recordids);
-                    $this->vacuum_logstore($config);
-                    $this->progress->update_full(100, get_string('progress_archived', 'tool_s3logs', (object)[
+                    $keyname = $this->build_keyname($config->prefix, $rangestart, $firstrecord, $lastrecord);
+                    $this->progress->update_full(95, get_string('progress_uploading', 'tool_s3logs', (object)[
                         'count' => $numrecords,
-                        'keyname' => $keyname,
+                        'elapsed' => $elapsedtime,
                     ]));
+
+                    $s3client = new s3_client();
+                    $s3url = $s3client->upload_file($tempfile, $keyname);
+
+                    if (!$s3url) {
+                        throw new \moodle_exception('s3uploadfailed', 'tool_s3logs', '');
+                    } else {
+                        // Delete the processed records from the log table.
+                        $this->progress->update_full(98, get_string('progress_deleting', 'tool_s3logs', $numrecords));
+                        $this->delete_records($recordids);
+                        $this->vacuum_logstore($config);
+                        $this->progress->update_full(100, get_string('progress_archived', 'tool_s3logs', (object)[
+                            'count' => $numrecords,
+                            'keyname' => $keyname,
+                        ]));
+                    }
+                } else {
+                    $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
                 }
-            } else {
-                $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
+            } finally {
+                if ($this->memorylimitmessage !== null) {
+                    // Deferred from extract_records() til after the progress bar, so it doesn't
+                    // mess up its output.
+                    mtrace($this->memorylimitmessage);
+                }
             }
         }
     }

@@ -69,6 +69,7 @@ $string['progress_archiving'] = 'Archiving records created between {$a->start} a
 $string['progress_deleting'] = 'Deleting {$a} records from the database...';
 $string['progress_extracted'] = 'Extracting: {$a}';
 $string['progress_finding'] = 'Finding oldest eligible record...';
+$string['progress_memory'] = 'Mem: {$a}';
 $string['progress_norecords'] = 'No records extracted before time limit was reached.';
 $string['progress_uploading'] = 'Uploading {$a->count} records to S3 (extraction took {$a->elapsed}s)...';
 $string['progress_vacuuming'] = 'Running VACUUM on the log table...';
