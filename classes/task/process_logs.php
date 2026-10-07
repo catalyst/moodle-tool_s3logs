@@ -77,7 +77,9 @@ class process_logs extends \core\task\scheduled_task {
         foreach ($headerrecords as $key => $value) {
             $headers[] = $key;
         }
-        $result = fputcsv($fp, $headers);
+        // Explicitly pass the (previously implicit) default escape character to avoid the
+        // PHP 8.4+ deprecation notice about its default value changing in a future version.
+        $result = fputcsv($fp, $headers, escape: '\\');
 
         return $result;
     }
@@ -299,7 +301,9 @@ class process_logs extends \core\task\scheduled_task {
             foreach ($records as $record) {
                 $recordids[] = $record->id;
                 $lastid = $record->id;
-                fputcsv($fp, (array)$record);
+                // Explicitly pass the (previously implicit) default escape character to avoid
+                // the PHP 8.4+ deprecation notice about its default value changing in future.
+                fputcsv($fp, (array)$record, escape: '\\');
                 $lasttimecreated = $record->timecreated;
                 $count++;
             }
