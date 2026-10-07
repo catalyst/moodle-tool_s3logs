@@ -55,7 +55,10 @@ class process_logs extends \core\task\scheduled_task {
      * @return array File name and file pointer.
      */
     private function get_temp_file() {
-        $tempdir = make_temp_directory('s3logs_upload');
+        // Use a per-request, node-local directory (not $CFG->tempdir, which is shared storage)
+        // since this file never needs to be seen by other nodes, and is cleaned up automatically
+        // on shutdown even if this task does not complete normally.
+        $tempdir = make_request_directory();
         $tempfile = tempnam($tempdir, 's3logs_');
         $fp = fopen($tempfile, 'w');
 
@@ -489,6 +492,10 @@ class process_logs extends \core\task\scheduled_task {
                     $this->progress->update_full(100, get_string('progress_norecords', 'tool_s3logs'));
                 }
             } finally {
+                if (file_exists($tempfile)) {
+                    unlink($tempfile);
+                }
+
                 if ($this->memorylimitmessage !== null) {
                     // Deferred from extract_records() til after the progress bar, so it doesn't
                     // mess up its output.
