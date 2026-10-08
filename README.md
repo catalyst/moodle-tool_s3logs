@@ -14,9 +14,9 @@ The plugin functionality runs as a Moodle scheduled task.
 ## Supported Moodle Versions
 This plugin currently supports Moodle:
 
-| Moodle version    | Branch            |
-|-------------------|-------------------|
-| Moodle 4.5+       | MOODLE_405_STABLE |
+| Moodle version   | Branch            |
+|------------------|-------------------|
+| Moodle 4.5 - 5.3 | MOODLE_405_STABLE |
 
 ## Installation
 
