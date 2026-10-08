@@ -24,12 +24,20 @@ This plugin currently supports Moodle:
 ## Installation
 
 1. Get the code and copy/ install it to: `<moodledir>/admin/tool/s3logs`
-2. Run the upgrade: `sudo -u www-data php admin/cli/upgrade.php` **Note:** the user may be different to www-data on your system.
+2. Run the upgrade:
+
+   ```bash
+   php admin/cli/upgrade.php
+   ```
 
 ## Configuration
 1. Configure the plugin in *Site administration > Plugins > Admin Tools > S3 log archiver*.
 2. The schedule for the plugin task can be altered at *Site administration > Server > Scheduled tasks*
-3. The scheduled task can also be run manually from your `<moodledir>`. `sudo -u www-data php admin/tool/task/cli/schedule_task.php --execute='\tool_s3logs\task\process_logs'`  **Note:** the user may be different to www-data on your system.
+3. The scheduled task can also be run manually from your `<moodledir>`:
+
+   ```bash
+   php admin/tool/task/cli/schedule_task.php --execute='\tool_s3logs\task\process_logs'
+   ```
 
 ### Extra Configuration
 
