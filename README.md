@@ -1,7 +1,7 @@
 [![ci](https://github.com/catalyst/moodle-tool_s3logs/actions/workflows/ci.yml/badge.svg?branch=MOODLE_405_STABLE)](https://github.com/catalyst/moodle-tool_s3logs/actions/workflows/ci.yml?branch=MOODLE_405_STABLE)
 
 
-# Moodle to Amazon S3 Log Archiver #
+# Moodle to Amazon S3 Log Archiver
 
 This plugin will take entries from the Moodle standard log store table and export them to AWS S3.
 
@@ -17,9 +17,6 @@ This plugin currently supports Moodle:
 | Moodle version    | Branch            |
 |-------------------|-------------------|
 | Moodle 4.5+       | MOODLE_405_STABLE |
-| Moodle 3.5 to 4.1 | master            |
-
-
 
 ## Installation
 
@@ -31,12 +28,13 @@ This plugin currently supports Moodle:
    ```
 
 ## Configuration
+
 1. Configure the plugin in *Site administration > Plugins > Admin Tools > S3 log archiver*.
 2. The schedule for the plugin task can be altered at *Site administration > Server > Scheduled tasks*
 3. The scheduled task can also be run manually from your `<moodledir>`:
 
    ```bash
-   php admin/tool/task/cli/schedule_task.php --execute='\tool_s3logs\task\process_logs'
+   php admin/cli/scheduled_task.php --execute='\tool_s3logs\task\process_logs'
    ```
 
 ### Extra Configuration
@@ -52,7 +50,7 @@ Two settings control this behaviour:
 
 **Example**: Archive only non-course logs
 
-A common use case is to archive site-level logs (where `courseid = 0` or `courseid = 1`) while leaving course logs untouched in the database for faster querying.
+A common use case is to archive site-level logs (where `courseid = 0` for logs outside any course, or `courseid = 1` for the site home) while leaving course logs untouched in the database for faster querying.
 
 1. Go to *Site administration > Plugins > Admin Tools > S3 log archiver*
 2. Set *Course ID filter* to `0,1`
@@ -61,17 +59,17 @@ A common use case is to archive site-level logs (where `courseid = 0` or `course
 The archiver will now only process log entries that do not belong to a real course, archiving them to S3 and removing them from the database.
 
 
-# Crafted by Catalyst IT
+## Crafted by Catalyst IT
 
 
 This plugin was developed by Catalyst IT Australia:
 
 https://www.catalyst-au.net/
 
-![Catalyst IT](/pix/catalyst-logo.png?raw=true)
+![Catalyst IT](pix/catalyst-logo.png?raw=true)
 
 
-# Contributing and Support
+## Contributing and Support
 
 Issues, and pull requests using github are welcome and encouraged!
 
@@ -83,7 +81,7 @@ to this plugin please contact us:
 https://www.catalyst-au.net/contact-us
 
 
-## License ##
+## License
 
 Copyright 2017 Matt Porritt <mattp@catalyst-au.net>
 
