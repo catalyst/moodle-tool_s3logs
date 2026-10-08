@@ -406,7 +406,8 @@ final class process_logs_test extends \advanced_testcase {
     }
 
     /**
-     * extract_records stops early and traces a warning when the memory threshold is exceeded.
+     * extract_records stops early and records an early-exit reason (surfaced via mtrace by
+     * execute(), after the progress bar) when the memory threshold is exceeded.
      *
      * @covers \tool_s3logs\task\process_logs::extract_records
      * @covers \tool_s3logs\task\process_logs::has_memory_exceeded
@@ -439,10 +440,21 @@ final class process_logs_test extends \advanced_testcase {
         $result = ini_set('memory_limit', (string)(int)ceil(memory_get_usage(true) * 1.2));
         $this->assertNotFalse($result, 'ini_set(memory_limit) must succeed for this test to be valid');
         try {
-            $this->expectOutputRegex('/Memory limit threshold.*reached/');
-            $ids = $this->invoke_private('extract_records', [time() + 3600, self::DEFAULT_INTERVAL, $fp, $config]);
+            // extract_records() only records the early-exit reason on the task (consumed by
+            // execute() after the progress bar); it doesn't mtrace it itself. Create our own
+            // task instance (rather than using invoke_private()) so we can inspect it.
+            $task = new process_logs();
+            $ref = new \ReflectionMethod(process_logs::class, 'extract_records');
+            $ref->setAccessible(true);
+
+            $this->expectOutputRegex('/Getting records older than/');
+            $ids = $ref->invokeArgs($task, [time() + 3600, self::DEFAULT_INTERVAL, $fp, $config]);
             fclose($fp);
 
+            $messageprop = new \ReflectionProperty(process_logs::class, 'earlyexitmessage');
+            $messageprop->setAccessible(true);
+
+            $this->assertMatchesRegularExpression('/Memory limit threshold.*reached/', $messageprop->getValue($task));
             $this->assertEmpty($ids);
         } finally {
             ini_set('memory_limit', $original);
@@ -529,5 +541,173 @@ final class process_logs_test extends \advanced_testcase {
         // a transaction block. But we can at least check that the method attempted to run and handled the error gracefully.
         $this->assertStringContainsString('Running VACUUM', $output);
         $this->assertStringContainsString('ERROR:  VACUUM cannot run inside a transaction block', $output);
+    }
+
+    // Slicing tests (backlog broken into files based on the task's cron schedule).
+
+    /**
+     * Invoke the private get_slice_cutoff() method on a given task instance.
+     *
+     * @param process_logs $task Task instance (with cron fields configured as needed).
+     * @param int $slicestart Start of the slice being sized.
+     * @param int $rangeend The overall archive threshold.
+     * @return int
+     */
+    private function invoke_get_slice_cutoff(process_logs $task, int $slicestart, int $rangeend): int {
+        $ref = new \ReflectionMethod(process_logs::class, 'get_slice_cutoff');
+        $ref->setAccessible(true);
+        return $ref->invokeArgs($task, [$slicestart, $rangeend]);
+    }
+
+    /**
+     * get_slice_cutoff uses the task's own cron schedule to size the slice: the end of the
+     * slice is the next time the task would have run after the slice's start.
+     *
+     * @covers \tool_s3logs\task\process_logs::get_slice_cutoff
+     */
+    public function test_get_slice_cutoff_uses_cron_schedule(): void {
+        $task = new process_logs();
+        // Configure the task to run daily at 01:00.
+        $task->set_minute('0');
+        $task->set_hour('1');
+        $task->set_day('*');
+        $task->set_month('*');
+        $task->set_day_of_week('*');
+
+        $slicestart = strtotime('2024-01-01 10:00:00');
+        $rangeend = strtotime('2024-06-01 00:00:00'); // Far in the future, should not be used.
+
+        $cutoff = $this->invoke_get_slice_cutoff($task, $slicestart, $rangeend);
+
+        // Next 01:00 after 2024-01-01 10:00 is 2024-01-02 01:00.
+        $this->assertSame(strtotime('2024-01-02 01:00:00'), $cutoff);
+        $this->assertGreaterThan($slicestart, $cutoff);
+    }
+
+    /**
+     * get_slice_cutoff never returns a time later than the overall archive threshold, even
+     * when the next scheduled run is further away than that.
+     *
+     * @covers \tool_s3logs\task\process_logs::get_slice_cutoff
+     */
+    public function test_get_slice_cutoff_caps_to_rangeend(): void {
+        $task = new process_logs();
+        // Configure the task to run weekly, on Saturdays at 01:01 (plugin's default schedule).
+        $task->set_minute('1');
+        $task->set_hour('1');
+        $task->set_day('*');
+        $task->set_month('*');
+        $task->set_day_of_week('6');
+
+        $slicestart = strtotime('2024-01-01 10:00:00');
+        // Less than a day away; well before the next Saturday 01:01 run.
+        $rangeend = strtotime('2024-01-01 12:00:00');
+
+        $cutoff = $this->invoke_get_slice_cutoff($task, $slicestart, $rangeend);
+
+        $this->assertSame($rangeend, $cutoff);
+    }
+
+    /**
+     * get_slice_cutoff falls back to the overall archive threshold if the schedule would
+     * not otherwise make forward progress, to guarantee the backlog loop cannot stall.
+     *
+     * @covers \tool_s3logs\task\process_logs::get_slice_cutoff
+     */
+    public function test_get_slice_cutoff_safety_net_when_schedule_does_not_advance(): void {
+        $slicestart = strtotime('2024-01-01 10:00:00');
+        $rangeend = strtotime('2024-06-01 00:00:00');
+
+        // Anonymous subclass simulating a schedule lookup that fails to advance past the
+        // slice's start (defensive case; get_next_scheduled_time() should not normally do
+        // this, but the safety net must handle it if it ever does).
+        $task = new class extends process_logs {
+            /**
+             * Simulate a cron schedule that does not advance past $now.
+             *
+             * @param int $now Current time.
+             * @return int
+             */
+            public function get_next_scheduled_time(int $now = 0): int {
+                return $now;
+            }
+        };
+
+        $cutoff = $this->invoke_get_slice_cutoff($task, $slicestart, $rangeend);
+
+        $this->assertSame($rangeend, $cutoff);
+    }
+
+    /**
+     * get_slice_cutoff falls back to whole calendar-day slices when the task's schedule runs
+     * more than once a day (e.g. hourly), so a large backlog is still broken up into
+     * sensible daily files rather than one file per run.
+     *
+     * @covers \tool_s3logs\task\process_logs::get_slice_cutoff
+     */
+    public function test_get_slice_cutoff_falls_back_to_daily_for_sub_daily_schedule(): void {
+        $task = new process_logs();
+        // Configure the task to run hourly, on the hour.
+        $task->set_minute('0');
+        $task->set_hour('*');
+        $task->set_day('*');
+        $task->set_month('*');
+        $task->set_day_of_week('*');
+
+        $slicestart = strtotime('2024-01-01 10:00:00');
+        $rangeend = strtotime('2024-06-01 00:00:00'); // Far in the future, should not be used.
+
+        $cutoff = $this->invoke_get_slice_cutoff($task, $slicestart, $rangeend);
+
+        // Rather than the next hourly run (2024-01-01 11:00), the slice should extend to the
+        // end of the current calendar day.
+        $this->assertSame(strtotime('2024-01-02 00:00:00'), $cutoff);
+    }
+
+    /**
+     * get_slice_cutoff's daily fallback still respects the overall archive threshold.
+     *
+     * @covers \tool_s3logs\task\process_logs::get_slice_cutoff
+     */
+    public function test_get_slice_cutoff_sub_daily_schedule_still_caps_to_rangeend(): void {
+        $task = new process_logs();
+        $task->set_minute('0');
+        $task->set_hour('*');
+        $task->set_day('*');
+        $task->set_month('*');
+        $task->set_day_of_week('*');
+
+        $slicestart = strtotime('2024-01-01 10:00:00');
+        // Well before the end of the calendar day.
+        $rangeend = strtotime('2024-01-01 14:00:00');
+
+        $cutoff = $this->invoke_get_slice_cutoff($task, $slicestart, $rangeend);
+
+        $this->assertSame($rangeend, $cutoff);
+    }
+
+    /**
+     * get_slice_cutoff does not apply the daily fallback for schedules that already run at
+     * (or slower than) daily frequency, even if the very first step from an arbitrary
+     * $slicestart happens to be less than 24 hours away.
+     *
+     * @covers \tool_s3logs\task\process_logs::get_slice_cutoff
+     */
+    public function test_get_slice_cutoff_does_not_bump_steady_state_daily_schedule(): void {
+        $task = new process_logs();
+        // Configure the task to run daily at 01:00: from a 10:00 start, the very next run is
+        // only 15 hours away, but the schedule's steady-state period is a full day.
+        $task->set_minute('0');
+        $task->set_hour('1');
+        $task->set_day('*');
+        $task->set_month('*');
+        $task->set_day_of_week('*');
+
+        $slicestart = strtotime('2024-01-01 10:00:00');
+        $rangeend = strtotime('2024-06-01 00:00:00');
+
+        $cutoff = $this->invoke_get_slice_cutoff($task, $slicestart, $rangeend);
+
+        $this->assertSame(strtotime('2024-01-02 01:00:00'), $cutoff);
     }
 }
