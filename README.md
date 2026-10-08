@@ -3,11 +3,11 @@
 
 # Moodle to Amazon S3 Log Archiver #
 
-This plugin will take entries from teh Moodle standard log store table and export them to AWS S3.
+This plugin will take entries from the Moodle standard log store table and export them to AWS S3.
 
-There is no internal cleanup process in Moodle to manage the size of the standard log store table. This table will get continuosly larger overtime. On busy Moodle sites this means that the table can easily be over 100GB on disk. As the standard log store table grows, both in number of records and size on disk Moodle performance can be effected.
+There is no internal cleanup process in Moodle to manage the size of the standard log store table. This table will get continuously larger over time. On busy Moodle sites this means that the table can easily be over 100GB on disk. As the standard log store table grows, both in number of records and size on disk Moodle performance can be affected.
 
-This plugin will extract entries from the standard log store table that are older than a user configured date. These extracted entries are then uploaded to AWS S3 as a csv file, and finally the original records are deleted from the Moodle database. Doing this keeps the Moodle databse size down while preserving data that can be leverage for analytics and other functions.
+This plugin will extract entries from the standard log store table that are older than a user configured date. These extracted entries are then uploaded to AWS S3 as a csv file, and finally the original records are deleted from the Moodle database. Doing this keeps the Moodle database size down while preserving data that can be leveraged for analytics and other functions.
 
 The plugin functionality runs as a Moodle scheduled task.
 
@@ -24,12 +24,12 @@ This plugin currently supports Moodle:
 ## Installation
 
 1. Get the code and copy/ install it to: `<moodledir>/admin/tool/s3logs`
-2. Run the upgrade: `sudo -u www-data php admin/cli/upgrade` **Note:** the user may be different to www-data on your system.
+2. Run the upgrade: `sudo -u www-data php admin/cli/upgrade.php` **Note:** the user may be different to www-data on your system.
 
 ## Configuration
 1. Configure the plugin in *Site administration > Plugins > Admin Tools > S3 log archiver*.
 2. The schedule for the plugin task can be altered at *Site administration > Server > Scheduled tasks*
-3. The scheduled task can also be run manually from your *moodledir*. `sudo -u www-data php admin/tool/task/cli/schedule_task.php --execute=\\tool_s3logs\\task\\process_logs`  **Note:** the user may be different to www-data on your system.
+3. The scheduled task can also be run manually from your `<moodledir>`. `sudo -u www-data php admin/tool/task/cli/schedule_task.php --execute='\tool_s3logs\task\process_logs'`  **Note:** the user may be different to www-data on your system.
 
 ### Extra Configuration
 
@@ -77,7 +77,7 @@ https://www.catalyst-au.net/contact-us
 
 ## License ##
 
-2017 Matt Porritt <mattp@catalyst-au.net>
+Copyright 2017 Matt Porritt <mattp@catalyst-au.net>
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
